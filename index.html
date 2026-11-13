@@ -252,6 +252,12 @@ button.hbtn:disabled{opacity:.5;cursor:default}
 .osm-attr a{color:#0B4F8C}
 .osm-attr span{color:#555}
 @media (max-width:720px){.osm-attr{right:8px;left:auto;top:8px;bottom:auto;max-width:calc(100% - 16px)}}
+.desglose{margin-top:8px;font-size:13px}
+.desglose summary{cursor:pointer;color:var(--muted)}
+.desglose summary b{color:var(--ink)}
+.desglose ul{margin:6px 0 4px;padding-left:18px}
+.desglose li{margin:2px 0}
+.form .subt{font-size:15px;margin:14px 0 4px}
 </style>
 <style id="css-shell">/* Carcasa */
 #sh-btn{position:fixed;left:12px;bottom:12px;z-index:40;border:1px solid rgba(255,255,255,.3);background:#111922;color:#fff;border-radius:999px;padding:6px 13px;font:600 13px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;cursor:pointer;white-space:nowrap;box-shadow:0 2px 10px rgba(0,0,0,.3)}
@@ -971,7 +977,41 @@ function evaluate(sid, cId, dId, opts = {}, base = state.asig) {
 
 /* Planificación automática del día */
 const ESPECIALES = ["refrigerada","congelada","adr","animales","granelLiquido"];
-const coste = s => s ? s.km + s.tardeTotal * 6 + s.pern * 180 + s.horasExtra * 0.6 + s.espera * 0.15 + s.restrMin * 0.05 : 0;
+/* Criterios (baremos) de la planificación automática: cada alumno ajusta los suyos en Empresa. */
+const BAREMOS = {
+  km:         { def: 1,    min: 0, max: 10,   paso: 0.1,  g: "ruta", l: "Kilómetro recorrido", u: "puntos por km", h: "Es la unidad de referencia: el resto de criterios equivale a «tantos km»." },
+  retraso:    { def: 6,    min: 0, max: 100,  paso: 0.5,  g: "ruta", l: "Retraso sobre la ventana del cliente", u: "puntos por minuto", h: "Cuanto más alto, más evita llegar tarde aunque recorra más km." },
+  pernocta:   { def: 180,  min: 0, max: 2000, paso: 10,   g: "ruta", l: "Pernocta fuera de la base", u: "puntos por noche", h: "Cuanto más alto, más intenta que el conductor duerma en casa." },
+  extra:      { def: 0.6,  min: 0, max: 20,   paso: 0.1,  g: "ruta", l: "Horas extra del conductor", u: "puntos por minuto", h: "Tiempo que la jornada supera la hora de fin del conductor." },
+  espera:     { def: 0.15, min: 0, max: 10,   paso: 0.05, g: "ruta", l: "Tiempo de espera", u: "puntos por minuto", h: "Esperas hasta que abre la ventana de carga o entrega." },
+  restr:      { def: 0.05, min: 0, max: 10,   paso: 0.05, g: "ruta", l: "Parada por restricciones de la DGT", u: "puntos por minuto", h: "Tiempo detenido en tramos horarios prohibidos." },
+  camion:     { def: 60,   min: 0, max: 1000, paso: 5,    g: "eleccion", l: "Sacar un camión más ese día", u: "puntos", h: "Cuanto más alto, más intenta llenar las rutas que ya existen." },
+  tamano:     { def: 2.5,  min: 0, max: 50,   paso: 0.5,  g: "eleccion", l: "Tamaño del camión que se saca", u: "puntos por cada 1.000 kg de carga útil", h: "Cuanto más alto, más prefiere el camión más pequeño que sirva." },
+  especial:   { def: 90,   min: 0, max: 1000, paso: 5,    g: "eleccion", l: "Usar un vehículo especial para mercancía corriente", u: "puntos", h: "Frigorífico, ADR, cisterna, animales o granel líquido con carga normal." },
+  sobrecual:  { def: 1,    min: 0, max: 10,   paso: 0.1,  g: "eleccion", l: "Usar un conductor sobrecualificado", u: "multiplicador", h: "1 = normal (10 a 25 puntos por cada cualificación que no hace falta); 0 = no importa; 2 = el doble." },
+  salida:     { def: 40,   min: 0, max: 1000, paso: 5,    g: "eleccion", l: "Volver a la base para una nueva salida", u: "puntos", h: "Cuanto más alto, menos rutas con regreso intermedio a la base." },
+  tolerancia: { def: 60,   min: 0, max: 600,  paso: 5,    g: "eleccion", l: "Retraso máximo que acepta el automático", u: "minutos", h: "Por encima de este retraso descarta la opción (o del que la ruta ya tuviera)." },
+};
+const bar = k => { const d = BAREMOS[k], v = state && state.empresa && state.empresa.baremos ? +state.empresa.baremos[k] : NaN; return isFinite(v) && v >= d.min && v <= d.max ? v : d.def; };
+const coste = s => s ? s.km * bar("km") + s.tardeTotal * bar("retraso") + s.pern * bar("pernocta") + s.horasExtra * bar("extra") + s.espera * bar("espera") + s.restrMin * bar("restr") : 0;
+function desglose(s) {
+  if (!s) return "";
+  const p = [["km recorridos", s.km, "km"], ["min de retraso", s.tardeTotal, "retraso"], ["pernoctas", s.pern, "pernocta"], ["min de horas extra", s.horasExtra, "extra"], ["min de espera", s.espera, "espera"], ["min parado por la DGT", s.restrMin, "restr"]].filter(x => +x[1] > 0);
+  return `<details class="desglose"><summary>Puntuación del planificador: <b>${nf(coste(s))}</b> puntos</summary><ul>${p.map(([l, n, k]) => `<li>${nf(n, n % 1 ? 1 : 0)} ${l} × ${String(bar(k)).replace(".", ",")} = ${nf(n * bar(k))}</li>`).join("") || "<li>Sin costes</li>"}</ul><p class="note">Calculada con tus criterios (Flota y personal › Empresa). El modo automático prefiere la opción con menos puntos.</p></details>`;
+}
+function formBaremos() {
+  const campo = k => { const d = BAREMOS[k]; return `<div class="field"><label for="b-${k}">${esc(d.l)}</label><div class="row" style="gap:8px;align-items:center;flex-wrap:nowrap"><input id="b-${k}" name="${k}" type="number" step="any" min="${d.min}" max="${d.max}" value="${bar(k)}" style="max-width:130px"><span class="note" style="margin:0">${esc(d.u)}${bar(k) !== d.def ? ` · por defecto ${String(d.def).replace(".", ",")}` : ""}</span></div><p class="note" style="margin:4px 0 0">${esc(d.h)}</p></div>`; };
+  const grupo = g => Object.keys(BAREMOS).filter(k => BAREMOS[k].g === g).map(campo).join("");
+  const cambiados = Object.keys(BAREMOS).filter(k => bar(k) !== BAREMOS[k].def).length;
+  return `<h2>Criterios de planificación automática</h2>
+  <p class="lead">Entre todas las opciones legales, el modo automático elige la de menos puntos. Aquí decides cuánto pesa cada cosa. Las normas legales (tiempos de conducción y descanso, permisos, certificados y capacidades) no se pueden cambiar.${cambiados ? ` Tienes ${cambiados} criterio${cambiados > 1 ? "s" : ""} distinto${cambiados > 1 ? "s" : ""} de los valores por defecto.` : ""}</p>
+  <form class="form" data-form="baremos" autocomplete="off">
+    <h3 class="subt">Coste de cada ruta</h3><div class="grid">${grupo("ruta")}</div>
+    <h3 class="subt">Preferencias al elegir camión y conductor</h3><div class="grid">${grupo("eleccion")}</div>
+    <p class="note">Los cambios se aplican a las próximas planificaciones automáticas. Para aplicarlos a un día ya planificado, ve a ese día en modo automático y pulsa «Recalcular este día».</p>
+    <div class="row"><button class="btn primary" type="submit">Guardar criterios</button><button class="btn" type="button" data-a="baremosDef">${ui.conf === "baremos" ? "Pulsa otra vez para restaurar" : "Restaurar valores por defecto"}</button></div>
+  </form>`;
+}
 function qualPen(d, c, s) {
   const k = d.permisos || [], need = carnetNecesario(c); let p = 0;
   if (need !== "C+E" && k.includes("C+E")) p += 20; if (need === "B" && k.some(x => x === "C" || x === "C1")) p += 15;
@@ -992,8 +1032,8 @@ function greedy(order, base0, D, ctx) {
       ds2.forEach(dId => [false, true].forEach(ns => {
         if (ns && !actual) return;
         const ev = evaluate(s.id, c.id, dId, { nuevaSalida: ns, auto: true, ctx }, asig);
-        if (!ev.ok || !ev.sim || ev.sim.tarde > Math.max(60, actual ? actual.tarde : 0)) return;
-        const sc = coste(ev.sim) - coste(actual) + (actual ? 0 : 60 + cap(c).kg / 400 + qualPen(D_(dId), c, s)) + (esp ? 90 : 0) + (ns ? 40 : 0);
+        if (!ev.ok || !ev.sim || ev.sim.tarde > Math.max(bar("tolerancia"), actual ? actual.tarde : 0)) return;
+        const sc = coste(ev.sim) - coste(actual) + (actual ? 0 : bar("camion") + cap(c).kg / 1000 * bar("tamano") + qualPen(D_(dId), c, s) * bar("sobrecual")) + (esp ? bar("especial") : 0) + (ns ? bar("salida") : 0);
         if (!best || sc < best.sc) best = { sc, asig: ev.asig };
       }));
     });
@@ -1240,7 +1280,7 @@ function pop(sims, curso) {
   return `<div class="pop"><button class="x" data-a="cerrar" aria-label="Cerrar">×</button><h4><span class="dot" style="background:${colorOf(r)}"></span>${esc(ui.view === "camion" ? r.camion.matricula + " · " + (r.conductor?.nombre || "sin conductor") : (r.conductor?.nombre || "") + " · " + r.camion.matricula)}</h4>
     <dl class="kv"><dt>Salida</dt><dd>${fmtT(r.inicio, D)}</dd><dt>Regreso</dt><dd>${fmtT(r.fin, D)}</dd><dt>Conducción</dt><dd>${dur(r.drive)} · ${nf(r.km)} km</dd>
     <dt>Pausas</dt><dd>${r.pausas} de 45 min</dd><dt>Carga y descarga</dt><dd>${dur(r.trab)}</dd><dt>Esperas</dt><dd>${dur(r.espera)}</dd>
-    ${r.restrMin ? `<dt>Parada DGT</dt><dd>${dur(r.restrMin)}</dd>` : ""}<dt>Pernoctas</dt><dd>${r.pern || "No"}</dd><dt>Dietas</dt><dd>${eur(r.dietas)}</dd></dl>
+    ${r.restrMin ? `<dt>Parada DGT</dt><dd>${dur(r.restrMin)}</dd>` : ""}<dt>Pernoctas</dt><dd>${r.pern || "No"}</dd><dt>Dietas</dt><dd>${eur(r.dietas)}</dd></dl>${desglose(r)}
     <div style="margin-top:8px">${r.list.map((s, i) => { const x = r.svc[s.id] || {}; return `<div class="note" style="margin:5px 0"><b style="color:var(--ink)">${i + 1}. ${esc(lab(s))}</b><br>${s.tipo === "recogida" ? `Carga ${fmtT(x.iniCarga, D)}` : `Sale de la base ${fmtT(x.base, D)}`} · entrega ${fmtT(x.llegada, D)} · descarga ${dur(+s.tDescarga)} · duración ${dur(x.duracion)}</div>`; }).join("")}</div>
     <div class="row" style="margin-top:8px"><a class="btn small" target="_blank" rel="noopener" href="${gmaps(r.stops.map(x => x.p))}">Ver ruta en Google Maps</a></div></div>`;
 }
@@ -1261,7 +1301,7 @@ function legalBar(r) {
   const lim = r.conductor && r.conductor.amplia ? LEY.diaAmpl : LEY.dia, dias = Math.max(1, Math.floor((r.fin - 1) / 1440) - Math.floor(r.inicio / 1440) + 1);
   const p = Math.min(100, r.drive / (lim * dias) * 100);
   return `<div class="bar"><div class="bl"><span>Conducción${dias > 1 ? ` (${dias} días)` : ""}</span><span>${dur(r.drive)}</span></div><div class="tr"><div class="fl ${p >= 85 ? "hi" : ""}" style="width:${p}%"></div></div></div>
-  <dl class="kv"><dt>Inicio</dt><dd>${fmtT(r.inicio, ui.day)}</dd><dt>Regreso a base</dt><dd>${fmtT(r.fin, ui.day)}</dd><dt>Pausas</dt><dd>${r.pausas}</dd><dt>Pernoctas</dt><dd>${r.pern || "No"}</dd><dt>Dietas</dt><dd>${eur(r.dietas)}</dd></dl>`;
+  <dl class="kv"><dt>Inicio</dt><dd>${fmtT(r.inicio, ui.day)}</dd><dt>Regreso a base</dt><dd>${fmtT(r.fin, ui.day)}</dd><dt>Pausas</dt><dd>${r.pausas}</dd><dt>Pernoctas</dt><dd>${r.pern || "No"}</dd><dt>Dietas</dt><dd>${eur(r.dietas)}</dd></dl>${desglose(r)}`;
 }
 function panelAsig(s, sims) {
   if (s.sub) return `<button class="btn small" data-a="volver">‹ Servicios del día</button><div class="card" style="margin-top:10px"><h4><span class="dot" style="background:${MERC[s.mercancia].c}"></span>${esc(lab(s))}</h4><div class="note">${esc(nombreCliente(s))}</div>
@@ -1547,6 +1587,7 @@ function pEmpresa() {
     <div class="field wide"><div class="checks"><label><input type="checkbox" name="dgt" ${E.dgt ? "checked" : ""}> Aplicar las restricciones generales de circulación de la DGT</label><label><input type="checkbox" name="pernoctas" ${E.pernoctas !== false ? "checked" : ""}> Permitir pernoctas fuera de la base (con dieta)</label><label><input type="checkbox" name="tipo2" ${E.tipo2 ? "checked" : ""}> La empresa tiene autorización de transportista de animales tipo 2 (viajes de más de 8 h)</label></div></div>
   </div>${datalist()}<p class="note">La dieta por pernocta parte de la dieta media diaria del Observatorio de Costes (julio de 2025); ajusta ambas cifras al convenio. Cataluña, País Vasco y Navarra aplican sus propias restricciones.</p>
   <div class="row"><button class="btn primary" type="submit">Guardar</button></div></form>
+  ${formBaremos()}
   <h2>Festivos</h2><p class="lead">Lista editable. Comprueba el calendario laboral oficial y la resolución anual de la DGT; los autonómicos solo restringen en su comunidad.</p>
   <form class="form row" data-form="festivo"><div class="field"><label for="fe-f">Fecha</label><input id="fe-f" name="fecha" type="date" required></div><div class="field" style="flex:1"><label for="fe-n">Nombre</label><input id="fe-n" name="nombre" required></div><div class="field"><label for="fe-a">Ámbito</label><select id="fe-a" name="ambito"><option value="nacional">Nacional</option><option value="autonomico">Autonómico</option><option value="local">Local</option></select></div><button class="btn primary" type="submit" style="align-self:flex-end">Añadir festivo</button></form>
   <div class="tw"><table><thead><tr><th>Fecha</th><th>Día</th><th>Festivo</th><th>Ámbito</th><th>Restringe</th><th></th></tr></thead><tbody>${[...E.festivos].sort((a, b) => a.fecha.localeCompare(b.fecha)).map((f, i) => `<tr><td class="n">${fechaCorta(f.fecha)}</td><td>${WDL[wdNum(dayNum(f.fecha))]}</td><td>${esc(f.nombre)}</td><td>${esc({ nacional: "Nacional", autonomico: "Autonómico", local: "Local" }[f.ambito] || f.ambito)}</td><td><input type="checkbox" data-a="festAplica" data-v="${esc(f.fecha)}" ${f.aplica !== false ? "checked" : ""} aria-label="Aplicar restricción"></td><td class="n"><button class="btn small danger" data-a="borrarFest" data-v="${esc(f.fecha)}">Quitar</button></td></tr>`).join("")}</tbody></table></div>
@@ -1675,6 +1716,7 @@ app.addEventListener("click", e => {
     case "miCuenta": ui.cuenta = { err: "" }; render(); break;
     case "cuentaNo": ui.cuenta = null; render(); break;
     case "recargarUsr": ui.conf = null; cargarUsuarios(); break;
+    case "baremosDef": if (ui.conf !== "baremos") { ui.conf = "baremos"; render(); setTimeout(() => { if (ui.conf === "baremos") { ui.conf = null; render(); } }, 4000); break; } ui.conf = null; delete E.baremos; setMsg("ok", "Criterios restaurados a los valores por defecto."); commit(); break;
     case "quitarClaveRutas": if (ui.conf !== "ors") { ui.conf = "ors"; render(); break; } guardarClaveRutas(""); break;
     case "aprobar": { const u = (ADM.lista || []).find(x => x.clave === id); if (!u) break;
       accionUsuario(() => DP.aprobar(id), `Alta de «${esc(u.nombre)}» aprobada: ya puede entrar con la contraseña que eligió.`); break; }
@@ -1765,6 +1807,13 @@ app.addEventListener("submit", e => {
     ui.pwd = null; E.modo = "auto";
     const sin = autoDia(ui.day, false);
     setMsg(sin.length ? "warn" : "ok", sin.length ? `Día planificado. Quedan ${sin.length} sin asignar: consulta el resumen.` : "Día planificado: todos los servicios tienen vehículo y conductor.");
+    commit(); return;
+  }
+  if (tipo === "baremos") {
+    const b = {};
+    Object.entries(BAREMOS).forEach(([k, d]) => { let v = parseFloat(String(fd.get(k) ?? "").replace(",", ".")); if (!isFinite(v)) v = d.def; b[k] = Math.round(Math.min(d.max, Math.max(d.min, v)) * 1000) / 1000; });
+    E.baremos = b;
+    setMsg("ok", "Criterios guardados. Se aplican a las próximas planificaciones automáticas; para un día ya planificado, pulsa «Recalcular este día» en modo automático.");
     commit(); return;
   }
   if (tipo === "clave-rutas") {
