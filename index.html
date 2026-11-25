@@ -258,6 +258,40 @@ button.hbtn:disabled{opacity:.5;cursor:default}
 .desglose ul{margin:6px 0 4px;padding-left:18px}
 .desglose li{margin:2px 0}
 .form .subt{font-size:15px;margin:14px 0 4px}
+[data-libre][hidden]{display:none}
+.pp-buscar{flex-wrap:wrap}
+.pp-buscar input{flex:1 1 240px;min-width:0}
+.pp{position:relative;height:320px;border:1px solid var(--line-strong);border-radius:10px;overflow:hidden;background:var(--sea);touch-action:none;cursor:crosshair;user-select:none;-webkit-user-select:none}
+.pp.drag{cursor:grabbing}
+.pp svg{display:block;width:100%;height:100%}
+.pp svg image{pointer-events:none}
+.pp .zoom{right:8px;bottom:8px}
+.pp-attr{position:absolute;left:6px;bottom:6px;font-size:11px;background:rgba(255,255,255,.88);color:#333;padding:1px 6px;border-radius:5px}
+.pp-attr a{color:#0B4F8C}
+.pp-ayuda{position:absolute;left:6px;top:6px;max-width:calc(100% - 12px);font-size:12px;background:rgba(255,255,255,.9);color:#222;padding:3px 8px;border-radius:6px;pointer-events:none}
+.pp-res{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin-top:4px;font-size:13px}
+.pp-res:empty{display:none}
+.pp-mal{color:var(--err)}
+.pp-op{text-align:left;white-space:normal;font-weight:500;line-height:1.3}
+@media (max-width:720px){.pp{height:260px}}
+/* Sesión: usuario y cambio de contraseña en la cabecera */
+.sesion .quien{font-size:13px;font-weight:600;opacity:.8;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis;margin-right:2px}
+.hbtn .hs{display:none}
+@media (max-width:640px){.hbtn .hl{display:none}.hbtn .hs{display:inline}.sesion .quien{max-width:110px}}
+@media (max-width:560px){.sesion .quien.adm{display:none}.switch button{padding:5px 9px}.hbtn{padding:4px 8px}}
+/* Subcontratación */
+.subc{margin-top:12px}
+.subc .checks label{font-weight:600}
+.desg{font-size:13px;margin-top:8px;border:1px solid var(--line);border-radius:8px;border-collapse:separate;border-spacing:0;overflow:hidden;background:var(--surface)}
+.desg td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+.desg td .note{font-size:12px}
+.desg tr.tot td{background:var(--surface-2);font-weight:700;border-bottom:0}
+[data-subotro][hidden]{display:none}
+.tar .tar-l{display:flex;align-items:center;gap:6px;font-weight:600;font-size:14px}
+.tar td{vertical-align:middle}
+.tar td .note{display:block;margin-left:24px}
+.tar .tar-i{width:96px;border:1px solid var(--line-strong);background:var(--surface);border-radius:7px;padding:6px 8px;text-align:right}
+.tar .tar-i:disabled{background:var(--surface-2);opacity:.6}
 </style>
 <style id="css-shell">/* Carcasa */
 #sh-btn{position:fixed;left:12px;bottom:12px;z-index:40;border:1px solid rgba(255,255,255,.3);background:#111922;color:#fff;border-radius:999px;padding:6px 13px;font:600 13px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;cursor:pointer;white-space:nowrap;box-shadow:0 2px 10px rgba(0,0,0,.3)}
@@ -566,6 +600,8 @@ function sample() {
     destino("l10", "Almacén de materiales de Chantada", "k5", "Chantada", "09:00", "14:00", "muelle"),
     destino("l11", "Farmacia de guardia de Lugo", "k6", "Lugo", "09:00", "12:00", "calle"),
   ];
+  const USO_EJ = { l1: "descarga", l2: "carga", l3: "descarga", l4: "descarga", l5: "descarga", l6: "carga", l7: "descarga", l8: "carga", l9: "descarga", l10: "descarga", l11: "descarga" };
+  destinos.forEach(d => { d.uso = USO_EJ[d.id] || "ambos"; d.direccion = ""; });
   const L = id => { const d = destinos.find(x => x.id === id); return { ...d.lugar, destinoId: id, nombre: d.nombre }; };
   const sv = (id, k, cliente, tipo, ori, des, merc, peso, pal, m3, vc, ve, extra = {}) => ({
     id, fecha: F(k), clienteId: cliente, ref: extra.ref || "", tipo, origen: tipo === "recogida" && ori ? L(ori) : null, destino: des ? L(des) : null, mercancia: merc,
@@ -620,6 +656,7 @@ function sample() {
       sv("s13", 5, "k3", "recogida", "l6", "l7", "adr", 24000, 0, 29, { desde: "08:00", hasta: "10:30" }, { desde: "12:00", hasta: "17:00", dia: 0 }, { adrClase: "3", adrCisterna: true, precio: 780 }),
     ].map(s => s.id === "s11" ? { ...s, origen: { ...gaz("Lalín"), nombre: "Lalín (feria de ganado)" }, destino: { ...gaz("Lleida"), nombre: "Cebadero de Lleida" }, vCarga: { desde: "06:00", hasta: "08:00" }, vEntrega: { desde: "08:00", hasta: "12:00", dia: 1 }, precio: 1900, obs: "Viaje de más de 8 horas." } : s),
     asig: {},
+    subcontratas: subcontratasEjemplo(),
   };
 }
 function migrate(s) {
@@ -629,6 +666,8 @@ function migrate(s) {
   s.empresa.modo = "manual";
   if (!Array.isArray(s.empresa.festivos)) s.empresa.festivos = FESTIVOS_DEF;
   ["clientes", "destinos", "camiones", "conductores", "servicios"].forEach(k => { if (!Array.isArray(s[k])) s[k] = []; });
+  // Datos de antes de la subcontratación: se añaden las empresas de ejemplo (una lista vacía a propósito se respeta)
+  if (!Array.isArray(s.subcontratas)) s.subcontratas = subcontratasEjemplo();
   if (!s.asig || typeof s.asig !== "object") s.asig = {};
   return s;
 }
@@ -995,7 +1034,7 @@ const BAREMOS = {
 const bar = k => { const d = BAREMOS[k], v = state && state.empresa && state.empresa.baremos ? +state.empresa.baremos[k] : NaN; return isFinite(v) && v >= d.min && v <= d.max ? v : d.def; };
 const coste = s => s ? s.km * bar("km") + s.tardeTotal * bar("retraso") + s.pern * bar("pernocta") + s.horasExtra * bar("extra") + s.espera * bar("espera") + s.restrMin * bar("restr") : 0;
 function desglose(s) {
-  if (!s) return "";
+  if (!s || !esAdmin()) return "";
   const p = [["km recorridos", s.km, "km"], ["min de retraso", s.tardeTotal, "retraso"], ["pernoctas", s.pern, "pernocta"], ["min de horas extra", s.horasExtra, "extra"], ["min de espera", s.espera, "espera"], ["min parado por la DGT", s.restrMin, "restr"]].filter(x => +x[1] > 0);
   return `<details class="desglose"><summary>Puntuación del planificador: <b>${nf(coste(s))}</b> puntos</summary><ul>${p.map(([l, n, k]) => `<li>${nf(n, n % 1 ? 1 : 0)} ${l} × ${String(bar(k)).replace(".", ",")} = ${nf(n * bar(k))}</li>`).join("") || "<li>Sin costes</li>"}</ul><p class="note">Calculada con tus criterios (Flota y personal › Empresa). El modo automático prefiere la opción con menos puntos.</p></details>`;
 }
@@ -1070,10 +1109,311 @@ function motivo(s) {
   return "Los vehículos y conductores aptos están ocupados o el servicio no cabe en su jornada legal.";
 }
 const nombreCliente = s => (K_(s.clienteId) || {}).nombre || s.cliente || "Sin cliente";
-// Contraseña del modo automático (se guarda solo su huella, no el texto)
-const CLAVE_AUTO = "18yaq8xxsq9";
 const huella = (str, seed = 7) => { let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed; for (let i = 0, ch; i < str.length; i++) { ch = str.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); } h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507); h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909); h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507); h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909); return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36); };
 const lab = s => (s.destino && s.destino.nombre) || nombreCliente(s);
+
+/* ======================================================================
+   Subcontratación: empresas colaboradoras, sus tarifas y el coste de cada servicio.
+   El servicio lo hace otra empresa con su vehículo y su conductor. Se simula solo el
+   servicio (del inicio de la carga al final de la descarga) con los tiempos legales.
+   Coste = km × €/km del vehículo + horas × €/h del vehículo + pernoctas × €/pernocta
+           + días de servicio × dieta (+ recargo ADR) y, como mínimo, el importe mínimo.
+   ====================================================================== */
+const TIPOS_SUB = {
+  furgoneta:    { l: "Furgoneta", config: "furgoneta", semi: "furgon", kg: 1200, pal: 6, m3: 12, km: 0.30, hora: 22 },
+  rigido2:      { l: "Camión rígido de 2 ejes (lona o furgón)", config: "rigido", semi: "tauliner", kg: 10000, pal: 18, m3: 45, km: 0.50, hora: 28 },
+  rigido3:      { l: "Camión rígido de 3 ejes (lona o furgón)", config: "rigido", semi: "tauliner", kg: 16000, pal: 20, m3: 55, km: 0.58, hora: 30 },
+  rigidoFrigo:  { l: "Camión rígido frigorífico", config: "rigido", semi: "frigorifico", kg: 9000, pal: 16, m3: 40, km: 0.58, hora: 31 },
+  trailer:      { l: "Tráiler de lona o furgón", config: "trailer", semi: "tauliner", kg: 25000, pal: 33, m3: 90, km: 0.75, hora: 34 },
+  trailerFrigo: { l: "Tráiler frigorífico", config: "trailer", semi: "frigorifico", kg: 24000, pal: 33, m3: 86, km: 0.85, hora: 38 },
+  cisterna:     { l: "Tráiler cisterna", config: "trailer", semi: "cisterna", kg: 25000, pal: 0, m3: 38, km: 0.85, hora: 40 },
+  volquete:     { l: "Tráiler volquete o bañera", config: "trailer", semi: "basculante", kg: 25000, pal: 0, m3: 60, km: 0.80, hora: 36 },
+  contenedor:   { l: "Tráiler portacontenedores", config: "trailer", semi: "portacontenedores", kg: 26000, pal: 0, m3: 0, km: 0.78, hora: 34 },
+  plataforma:   { l: "Tráiler plataforma o góndola", config: "trailer", semi: "plataforma", kg: 25000, pal: 33, m3: 0, km: 0.90, hora: 40 },
+  portacoches:  { l: "Tráiler portavehículos", config: "trailer", semi: "portacoches", kg: 20000, pal: 0, m3: 0, km: 0.85, hora: 36 },
+  ganadero:     { l: "Tráiler ganadero", config: "trailer", semi: "ganadero", kg: 22000, pal: 0, m3: 80, km: 0.80, hora: 36 },
+  tren:         { l: "Tren de carretera", config: "tren", semi: "tauliner", kg: 26500, pal: 36, m3: 110, km: 0.80, hora: 36 },
+  mega:         { l: "Megatráiler o dúo-tráiler", config: "mega", semi: "tauliner", kg: 32500, pal: 51, m3: 150, km: 1.00, hora: 42 },
+};
+const SUB = id => (state.subcontratas || []).find(k => k.id === id);
+const nombreSub = s => { const k = s && s.subId ? SUB(s.subId) : null; return k ? k.nombre : (s && s.subTransp) || "Transportista colaborador"; };
+const subR2 = n => Math.round(n * 100) / 100;
+const subCap = T => `Carga útil ${nf(T.kg)} kg${T.pal ? ` · ${T.pal} palés` : ""}${T.m3 ? ` · ${nf(T.m3)} m³` : ""}`;
+const subLleva = T => ((SEMI[T.semi] || {}).m || []).map(m => MERC[m].l.toLowerCase()).join(", ");
+const subEur = n => nf(n, 2) + " €";
+
+function subcontratasEjemplo() {
+  const t = (km, hora) => ({ km, hora });
+  return [
+    { id: "sk1", nombre: "Transportes Ribeira Sacra, S.L.", cif: "B27000101", contacto: "Departamento de tráfico", telefono: "982 000 101", email: "trafico@ribeirasacra.example", localidad: "Monforte de Lemos", autorizacion: "MDP 27-000101", notas: "Carga general y frigorífica. Salidas diarias hacia Madrid.",
+      adr: false, recargoAdr: 0, pernocta: 40, dieta: 25, minimo: 120, tarifas: { furgoneta: t(0.30, 22), rigido2: t(0.50, 28), rigidoFrigo: t(0.58, 31), trailer: t(0.75, 34), trailerFrigo: t(0.85, 38) } },
+    { id: "sk2", nombre: "Cisternas do Atlántico, S.A.", cif: "A15000102", contacto: "Consejero de seguridad", telefono: "981 000 102", email: "operaciones@cisternas.example", localidad: "Arteixo", autorizacion: "MDP 15-000102", notas: "Cisternas y volquetes. Vehículos y conductores con ADR.",
+      adr: true, recargoAdr: 12, pernocta: 45, dieta: 28, minimo: 250, tarifas: { cisterna: t(0.85, 40), volquete: t(0.80, 36), trailer: t(0.78, 35) } },
+    { id: "sk3", nombre: "Transgando Lalín, S.L.", cif: "B36000103", contacto: "Oficina", telefono: "986 000 103", email: "", localidad: "Lalín", autorizacion: "MDP 36-000103", notas: "Animales vivos: autorización tipo 2 y vehículos homologados para viajes largos.",
+      adr: false, recargoAdr: 0, pernocta: 40, dieta: 25, minimo: 150, tarifas: { ganadero: t(0.80, 36), plataforma: t(0.90, 40) } },
+  ];
+}
+
+/* ¿Sirve este vehículo de la empresa para el servicio? Devuelve los motivos por los que no. */
+function aptoSub(s, k, tk) {
+  const T = TIPOS_SUB[tk], e = [];
+  if (!T) return ["Ese tipo de vehículo ya no existe."];
+  if (!k || !k.tarifas || !k.tarifas[tk]) e.push(`${k ? k.nombre : "La empresa"} no tiene este vehículo en su tarifa.`);
+  const m = s.mercancia, lleva = (SEMI[T.semi] || {}).m || [];
+  if (m === "adr") {
+    if (k && !k.adr) e.push(`${k.nombre} no transporta mercancías peligrosas (ADR).`);
+    if (s.adrCisterna && T.semi !== "cisterna") e.push("La mercancía peligrosa viaja en cisterna.");
+    if (!s.adrCisterna && !lleva.includes("paletizada")) e.push("No sirve para mercancía peligrosa en bultos.");
+  } else if (!lleva.includes(m)) e.push(`No sirve para ${MERC[m] ? MERC[m].l.toLowerCase() : "esta mercancía"}.`);
+  if ((+s.peso || 0) > T.kg) e.push(`Pesa ${nf(s.peso)} kg y la carga útil es de ${nf(T.kg)} kg.`);
+  if ((+s.palets || 0) > T.pal) e.push(T.pal ? `Son ${s.palets} palés y caben ${T.pal}.` : "No lleva palés.");
+  if (T.m3 && (+s.volumen || 0) > T.m3) e.push(`Ocupa ${nf(s.volumen, 1)} m³ y caben ${nf(T.m3)} m³.`);
+  if (m === "voluminosa" && ((+s.largo || 0) > 16.5 || (+s.ancho || 0) > 2.55) && !s.acc) e.push("La carga supera las dimensiones generales y el servicio no tiene autorización complementaria de circulación.");
+  return e;
+}
+
+/* Simulación del servicio subcontratado: mismos tiempos de conducción y descanso que la flota propia. */
+function simSub(s, tk, offset) {
+  const T = TIPOS_SUB[tk], from = origenDe(s), to = s.destino;
+  if (!T || !s.fecha || !from || !to || !numOk(from.lat) || !numOk(from.lon) || !numOk(to.lat) || !numOk(to.lon)) return null;
+  const g = CONFIG[T.config], D = dayNum(s.fecha), rec = s.tipo === "recogida";
+  const restr = aplicaRestriccion({ mma: g.mma, config: T.config }, [s]);
+  let t = (rec ? (winAbs(s.vCarga, "desde", D) ?? D * 1440 + 480) : D * 1440 + 360) + (offset || 0);
+  const inicio = t, r = {};
+  let dayStart = t, dayDrive = 0, cont = 0, ampl = LEY.ampliacionesSemana;
+  let drive = 0, pausas = 0, trab = 0, espera = 0, restrMin = 0, descanso = 0, pern = 0, firstWait = 0;
+  const limite = () => ampl > 0 ? LEY.diaAmpl : LEY.dia;
+  const nuevoDia = () => { if (dayDrive > LEY.dia) ampl--; dayStart = t; dayDrive = 0; cont = 0; };
+  const descansoDiario = () => { t += LEY.descanso; descanso += LEY.descanso; pern++; nuevoDia(); };
+  const trabajo = min => { min = Math.max(0, +min || 0); if (!min) return; if ((t - dayStart) + min > LEY.amplitud) descansoDiario(); t += min; trab += min; };
+  if (rec) { r.llegCarga = t; r.iniCarga = t; } else r.base = t;
+  trabajo(+s.tCarga);
+  if (rec) r.finCarga = t;
+  const km = dist(from, to);
+  let rem = Math.max(0, Math.round(minTramo(from, to, g.vel))), guard = 0;
+  while (rem > 0 && guard++ < 500) {
+    if (restr && restrFin(t)) {
+      const fin = restrFin(t), w = fin - t; t = fin;
+      if (w >= LEY.dia) { descanso += w; pern++; nuevoDia(); } else { restrMin += w; if (w >= LEY.pausa) cont = 0; }
+      continue;
+    }
+    if (dayDrive >= limite() || (t - dayStart) >= LEY.amplitud) { descansoDiario(); continue; }
+    if (cont >= LEY.cont) { t += LEY.pausa; pausas++; cont = 0; continue; }
+    let ch = Math.min(rem, LEY.cont - cont, limite() - dayDrive, LEY.amplitud - (t - dayStart));
+    if (restr) { const ns = restrIni(t); if (ns != null) ch = Math.min(ch, ns - t); }
+    if (ch <= 0) { descansoDiario(); continue; }
+    t += ch; rem -= ch; cont += ch; dayDrive += ch; drive += ch;
+  }
+  r.llegada = t;
+  const de = winAbs(s.vEntrega, "desde", D), he = winAbs(s.vEntrega, "hasta", D);
+  if (de != null && t < de) {
+    const w = de - t; firstWait = w; t = de;
+    if (w >= LEY.descanso) { descanso += w; pern++; nuevoDia(); } else { espera += w; if (w >= LEY.pausa) cont = 0; }
+  }
+  const tarde = he != null && r.llegada > he ? r.llegada - he : 0;
+  r.iniDesc = t; trabajo(+s.tDescarga); r.fin = t; r.duracion = r.fin - inicio;
+  return Object.assign(r, { tipo: tk, km, real: esReal(from, to), inicio, drive, pausas, trab, espera, restrMin, descanso, pern, tarde, firstWait,
+    minutos: r.fin - inicio - descanso, dias: Math.floor((r.fin - 1) / 1440) - Math.floor(inicio / 1440) + 1 });
+}
+/* Hora de salida: sin esperas innecesarias (como la flota propia) y, si se puede, a tiempo para la entrega. */
+function simSubOpt(s, tk) {
+  const r0 = simSub(s, tk, 0); if (!r0) return null;
+  let best = r0;
+  if (s.tipo === "recogida") {
+    const D = dayNum(s.fecha), a = winAbs(s.vCarga, "desde", D), b = winAbs(s.vCarga, "hasta", D);
+    const off = r0.firstWait && a != null && b != null && b > a ? Math.min(r0.firstWait, b - a) : 0;
+    if (off > 0) { const r1 = simSub(s, tk, off); if (r1 && r1.tarde <= r0.tarde) best = r1; }
+  } else if (r0.tarde > 0) { const r1 = simSub(s, tk, -Math.min(r0.tarde, 360)); if (r1 && r1.tarde < r0.tarde) best = r1; }
+  else if (r0.firstWait > 0) { const r1 = simSub(s, tk, r0.firstWait); if (r1 && r1.tarde <= r0.tarde) best = r1; }
+  return best;
+}
+function calcSub(s, k, tk) {
+  const tar = k && k.tarifas ? k.tarifas[tk] : null; if (!tar || !TIPOS_SUB[tk]) return null;
+  const sim = simSubOpt(s, tk); if (!sim) return null;
+  const P = {
+    km: { n: Math.round(sim.km), p: +tar.km || 0 },
+    horas: { n: subR2(sim.minutos / 60), p: +tar.hora || 0 },
+    pern: { n: sim.pern, p: +k.pernocta || 0 },
+    dietas: { n: sim.dias, p: +k.dieta || 0 },
+  };
+  Object.values(P).forEach(x => { x.imp = subR2(x.n * x.p); });
+  const subtotal = subR2(P.km.imp + P.horas.imp + P.pern.imp + P.dietas.imp);
+  const pAdr = s.mercancia === "adr" && k.adr ? (+k.recargoAdr || 0) : 0, recargo = subR2(subtotal * pAdr / 100);
+  const minimo = +k.minimo || 0, calc = subR2(subtotal + recargo);
+  return { k, tk, sim, P, subtotal, pAdr, recargo, minimo, calc, aplicaMinimo: calc < minimo, total: Math.max(calc, minimo) };
+}
+function mejorSub(s, k) {
+  let best = null;
+  Object.keys((k && k.tarifas) || {}).forEach(tk => {
+    if (!TIPOS_SUB[tk] || aptoSub(s, k, tk).length) return;
+    const c = calcSub(s, k, tk); if (c && (!best || c.total < best.c.total)) best = { t: tk, c };
+  });
+  return best;
+}
+/* Coste de un servicio subcontratado: con la tarifa de la empresa o, sin ella, el importe escrito a mano. */
+function costeSub(s) {
+  if (!s || !s.sub) return null;
+  const k = s.subId ? SUB(s.subId) : null;
+  if (!k) return +s.subCoste || 0;
+  const c = calcSub(s, k, s.subTipo);
+  return c ? c.total : null;
+}
+const subX = s => { const k = s && s.sub && s.subId ? SUB(s.subId) : null, c = k ? calcSub(s, k, s.subTipo) : null; return c ? c.sim : null; };
+
+function subcontratar(sid, kId, tk) {
+  const s = S_(sid), k = SUB(kId);
+  if (!s || !k || state.empresa.modo === "auto") return;
+  let t = tk;
+  if (!t) { const m = mejorSub(s, k); if (!m) { setMsg("err", `${esc(k.nombre)} no tiene ningún vehículo apto para este servicio.`); render(); return; } t = m.t; }
+  const e = aptoSub(s, k, t);
+  if (e.length) { setMsg("err", errList(`No se puede subcontratar con ese vehículo (${esc(TIPOS_SUB[t] ? TIPOS_SUB[t].l.toLowerCase() : "")}).`, e)); render(); return; }
+  const c = calcSub(s, k, t);
+  if (!c) { setMsg("err", "Faltan el origen o el destino del servicio para calcular el coste."); render(); return; }
+  delete state.asig[sid];
+  Object.assign(s, { sub: true, subId: k.id, subTipo: t, subTransp: k.nombre, subCoste: c.total });
+  ui.subAbierto = null;
+  setMsg("ok", `Servicio subcontratado a ${esc(k.nombre)} (${esc(TIPOS_SUB[t].l.toLowerCase())}) por ${subEur(c.total)}.`);
+  commit();
+}
+function subOnOff(sid, on) {
+  const s = S_(sid); if (!s) return;
+  if (state.empresa.modo === "auto") { render(); return; }
+  if (on) { ui.subAbierto = sid; render(); return; }
+  ui.subAbierto = null;
+  if (!s.sub) { render(); return; }
+  s.sub = false; delete s.subId; delete s.subTipo; s.subTransp = ""; s.subCoste = 0;
+  setMsg("ok", "El servicio ya no está subcontratado: asígnale vehículo y conductor de la flota propia.");
+  commit();
+}
+/* Formulario de «Servicios»: empresa de la lista (coste con su tarifa) u otro transportista (importe a mano). */
+function resolverSubForm(s, fd, prev) {
+  const kId = String(fd.get("subId") || "");
+  delete s.subId; delete s.subTipo;
+  if (!s.sub) return "";
+  const k = kId && kId !== "__otro" ? SUB(kId) : null;
+  if (!k) return "";
+  let t = prev && prev.subId === k.id && prev.subTipo && k.tarifas && k.tarifas[prev.subTipo] && !aptoSub(s, k, prev.subTipo).length ? prev.subTipo : "";
+  if (!t) {
+    const m = mejorSub(s, k);
+    if (!m) { const ej = Object.keys(k.tarifas || {}).map(tk => aptoSub(s, k, tk)[0]).filter(Boolean)[0]; return `${k.nombre} no tiene ningún vehículo apto para este servicio${ej ? ` (por ejemplo: ${ej.replace(/\.$/, "")})` : ""}. Elige otra empresa u «Otro transportista».`; }
+    t = m.t;
+  }
+  const c = calcSub(s, k, t);
+  if (!c) return "No se puede calcular el coste de la subcontratación: faltan el origen o el destino del servicio.";
+  Object.assign(s, { subId: k.id, subTipo: t, subTransp: k.nombre, subCoste: c.total });
+  return "";
+}
+
+const margenSub = (s, c) => +s.precio
+  ? `<div class="msg ${s.precio - c >= 0 ? "ok" : "err"}" style="margin-top:8px">Precio del porte ${subEur(s.precio)} − coste ${subEur(c)} = <b>margen ${subEur(s.precio - c)}</b> (${nf((s.precio - c) / s.precio * 100, 1)} %)</div>`
+  : `<p class="note" style="margin:8px 0 0">Escribe el precio del porte en «Servicios» para ver el margen.</p>`;
+function tablaSub(s, c) {
+  const x = c.sim, D = dayNum(s.fecha), P = c.P, pr = v => nf(v, 2) + " €";
+  const fila = (l, det, imp) => `<tr><td>${l}<br><span class="note">${det}</span></td><td class="n">${subEur(imp)}</td></tr>`;
+  return `<table class="desg"><tbody>
+    ${fila("Kilómetros", `${nf(P.km.n)} km ${x.real ? "por carretera" : "estimados"} × ${pr(P.km.p)}`, P.km.imp)}
+    ${fila("Horas de servicio", `${dur(x.minutos)} = ${nf(P.horas.n, 2)} h × ${pr(P.horas.p)}`, P.horas.imp)}
+    ${fila("Pernoctas", `${P.pern.n} × ${pr(P.pern.p)}`, P.pern.imp)}
+    ${fila("Dietas", `${P.dietas.n} ${P.dietas.n === 1 ? "día" : "días"} de servicio × ${pr(P.dietas.p)}`, P.dietas.imp)}
+    ${c.pAdr ? fila(`Recargo ADR (${nf(c.pAdr, c.pAdr % 1 ? 1 : 0)} %)`, `sobre ${subEur(c.subtotal)}`, c.recargo) : ""}
+    ${c.aplicaMinimo ? `<tr><td>Importe mínimo por servicio<br><span class="note">El cálculo da ${subEur(c.calc)}: se cobra el mínimo</span></td><td class="n">${subEur(c.minimo)}</td></tr>` : ""}
+    <tr class="tot"><td>Coste de la subcontratación</td><td class="n">${subEur(c.total)}</td></tr></tbody></table>
+    <dl class="kv" style="margin-top:8px"><dt>${s.tipo === "recogida" ? "Carga" : "Carga en la base"}</dt><dd>${fmtT(x.iniCarga ?? x.base, D)}</dd><dt>Llega a la entrega</dt><dd>${fmtT(x.llegada, D)}</dd><dt>Fin de la descarga</dt><dd>${fmtT(x.fin, D)}</dd></dl>
+    <p class="note" style="margin:6px 0 0">Horas de servicio: conducción ${dur(x.drive)} ${state.empresa.tiempo === "real" && x.real ? "(tiempo por carretera)" : `(a ${CONFIG[TIPOS_SUB[c.tk].config].vel} km/h de media)`}, pausas ${dur(x.pausas * LEY.pausa)}, carga y descarga ${dur(x.trab)}${x.espera ? `, esperas ${dur(x.espera)}` : ""}${x.restrMin ? `, parada por restricciones de la DGT ${dur(x.restrMin)}` : ""}.${x.descanso ? ` El tiempo en descansos diarios y en esperas de 11 h o más (${dur(x.descanso)}) no cuenta como horas: se paga con las pernoctas.` : ""}</p>
+    ${x.tarde ? `<div class="msg warn">Con estos horarios llegaría ${dur(x.tarde)} tarde a la entrega.</div>` : ""}
+    ${s.mercancia === "animales" && x.drive > 480 ? `<div class="msg warn">Viaje de más de 8 h con animales: comprueba que la empresa tiene autorización de transportista tipo 2 y vehículo homologado para viajes largos.</div>` : ""}`;
+}
+
+/* Recuadro «Subcontratar este servicio» del panel de Planificación */
+function panelSub(s, auto) {
+  const L = state.subcontratas || [], on = !!s.sub || ui.subAbierto === s.id, dis = auto ? " disabled" : "";
+  let h = `<div class="box subc"><span class="lbl">Subcontratación</span><div class="checks" style="margin-top:4px"><label><input type="checkbox" data-a="subOn"${on ? " checked" : ""}${dis}> Subcontratar este servicio</label></div>`;
+  if (!on) return h + `<p class="note" style="margin:4px 0 0">Lo hace otra empresa de transporte con su vehículo y su conductor, y cobra según su tarifa.</p></div>`;
+  const k = s.sub && s.subId ? SUB(s.subId) : null, manual = !!s.sub && !k;
+  if (!L.length && !manual) return h + `<div class="msg warn" style="margin-top:8px">Todavía no hay empresas subcontratistas. Añádelas con su tarifa en «Flota y personal › Subcontratación».</div><button class="btn small" data-a="irSub">Ir a Subcontratación</button></div>`;
+  const ops = L.map(x => {
+    const sel = !!k && k.id === x.id, c = sel ? calcSub(s, x, s.subTipo) : null, m = sel ? null : mejorSub(s, x);
+    const imp = sel ? (c ? subEur(c.total) : "") : m ? subEur(m.c.total) : "";
+    return `<option value="${x.id}"${sel ? " selected" : ""}${!sel && !m ? " disabled" : ""}>${esc(x.nombre)}${imp ? " · " + imp : sel ? "" : " (sin vehículo apto)"}</option>`;
+  }).join("");
+  const primera = manual ? `<option value="" selected>${esc(s.subTransp || "Transportista colaborador")} (importe a mano)</option>` : !k ? `<option value="" selected disabled>Elige la empresa</option>` : "";
+  h += `<div class="field" style="margin-top:8px"><label for="sb-k">Empresa subcontratada</label><select id="sb-k" data-a="subK"${dis}>${primera}${ops}</select></div>`;
+  if (manual) return h + `<dl class="kv" style="margin-top:8px"><dt>Coste</dt><dd><b>${subEur(+s.subCoste || 0)}</b>, escrito a mano en «Servicios»</dd></dl>${margenSub(s, +s.subCoste || 0)}<p class="note" style="margin:6px 0 0">Para calcularlo con una tarifa, elige una empresa de la lista.</p></div>`;
+  if (!k) return h + (L.every(x => !mejorSub(s, x)) ? `<div class="msg warn" style="margin-top:8px">Ninguna empresa tiene un vehículo apto para este servicio. Revisa sus tarifas en «Flota y personal › Subcontratación».</div>` : `<p class="note" style="margin:6px 0 0">Junto a cada empresa aparece lo que costaría con su vehículo apto más barato.</p>`) + `</div>`;
+  const filas = Object.keys(k.tarifas || {}).filter(tk => TIPOS_SUB[tk]).map(tk => ({ tk, e: aptoSub(s, k, tk), c: calcSub(s, k, tk) }));
+  const elegido = k.tarifas && k.tarifas[s.subTipo] && TIPOS_SUB[s.subTipo] ? s.subTipo : "";
+  h += `<div class="field" style="margin-top:8px"><label for="sb-t">Vehículo</label><select id="sb-t" data-a="subT"${dis}>${elegido ? "" : `<option value="" selected disabled>Elige el vehículo</option>`}${filas.map(({ tk, e, c }) => `<option value="${tk}"${tk === elegido ? " selected" : ""}${e.length && tk !== elegido ? " disabled" : ""}>${esc(TIPOS_SUB[tk].l)}${e.length ? " (no apto)" : c ? " · " + subEur(c.total) : ""}</option>`).join("")}</select></div>`;
+  if (!elegido) return h + `<div class="msg warn" style="margin-top:8px">${esc(k.nombre)} ya no tiene en su tarifa el vehículo que se eligió. Elige otro.</div></div>`;
+  const e = aptoSub(s, k, elegido), c = calcSub(s, k, elegido);
+  if (e.length) h += `<div class="msg err" style="margin-top:8px"><b>El vehículo elegido ya no sirve:</b><ul>${e.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>`;
+  h += c ? tablaSub(s, c) + margenSub(s, c.total) : `<div class="msg warn" style="margin-top:8px">Faltan el origen o el destino del servicio para calcular el coste.</div>`;
+  const no = filas.filter(x => x.e.length && x.tk !== elegido);
+  if (no.length) h += `<details style="margin-top:8px"><summary class="note">¿Por qué hay vehículos no aptos?</summary>${no.map(({ tk, e }) => `<div class="note" style="margin:4px 0"><b>${esc(TIPOS_SUB[tk].l)}:</b> ${esc(e.join(" "))}</div>`).join("")}</details>`;
+  return h + `</div>`;
+}
+
+/* Recuadro «Subcontratación» del formulario de servicios */
+function cajaSubServicio(v) {
+  const L = state.subcontratas || [], k = v.sub && v.subId ? SUB(v.subId) : null;
+  const sel = k ? k.id : v.sub ? "__otro" : (L[0] ? L[0].id : "__otro"), otro = sel === "__otro", cs = k ? costeSub(v) : null;
+  return `<div class="box"><span class="lbl">Subcontratación</span><div class="msg err" id="f-suberr" hidden></div><div class="grid">
+    <div class="field"><span class="lbl">&nbsp;</span><div class="checks"><label><input type="checkbox" name="sub" ${v.sub ? "checked" : ""}> Servicio subcontratado</label></div></div>
+    <div class="field"><label for="f-sk">Empresa</label><select id="f-sk" name="subId">${L.map(x => `<option value="${x.id}"${x.id === sel ? " selected" : ""}>${esc(x.nombre)}</option>`).join("")}<option value="__otro"${otro ? " selected" : ""}>Otro transportista (importe a mano)</option></select></div>
+    <div class="field" data-subotro${otro ? "" : " hidden"}><label for="f-st">Transportista colaborador</label><input id="f-st" name="subTransp" value="${esc(k ? "" : v.subTransp || "")}"></div>
+    <div class="field" data-subotro${otro ? "" : " hidden"}><label for="f-sc">Coste de la subcontratación (€)</label><input id="f-sc" name="subCoste" type="number" min="0" step="0.01" value="${!k && v.subCoste ? v.subCoste : ""}"></div></div>
+    ${k ? `<p class="note">Ahora: ${esc(k.nombre)} con ${esc((TIPOS_SUB[v.subTipo] || { l: "—" }).l.toLowerCase())} · coste calculado ${cs != null ? subEur(cs) : "—"}.</p>` : ""}
+    <p class="note">Con una empresa de «Flota y personal › Subcontratación», el coste se calcula con su tarifa y su vehículo apto más barato; el vehículo se puede cambiar en «Planificación», al seleccionar el servicio. Un servicio subcontratado no se planifica con la flota propia.</p></div>`;
+}
+
+/* Flota y personal › Subcontratación */
+function pSubcontratas() {
+  const L = state.subcontratas, ed = ui.edit && ui.edit.tipo === "subcontrata" ? ui.edit : null;
+  const nSv = id => state.servicios.filter(s => s.sub && s.subId === id).length;
+  const tarifa = k => Object.entries(k.tarifas || {}).filter(([tk]) => TIPOS_SUB[tk]).map(([tk, x]) => `<div class="note" style="margin:2px 0"><b style="color:var(--ink)">${esc(TIPOS_SUB[tk].l)}</b> · ${subEur(x.km)}/km · ${subEur(x.hora)}/h</div>`).join("");
+  return `<div class="row"><h1>Subcontratación</h1><span class="spacer"></span>${ed ? "" : `<button class="btn primary" data-a="nuevo" data-v="subcontrata">Añadir empresa</button>`}</div>
+  <p class="lead">Empresas de transporte colaboradoras y sus tarifas. Para subcontratar un servicio, selecciónalo en «Planificación» cuando esté sin asignar y marca «Subcontratar este servicio»: el programa calcula lo que costaría con cada empresa.</p>
+  <div class="info" style="margin-bottom:14px"><b>Cómo se calcula el coste.</b> Km del servicio × precio por km del vehículo + horas de servicio × precio por hora del vehículo + pernoctas × precio por pernocta + días de servicio × dieta. Con mercancía peligrosa se suma el recargo ADR y, si el resultado no llega al importe mínimo, se cobra el mínimo. Los km, las horas y las pernoctas salen de los datos del servicio y de los tiempos legales de conducción y descanso. Las horas van del inicio de la carga al final de la descarga, sin contar los descansos diarios. Importes sin IVA.</div>
+  ${ed ? formSubcontrata(ed.id ? SUB(ed.id) : null) : ""}
+  ${L.length ? `<div class="tw"><table><thead><tr><th>Empresa</th><th style="min-width:270px">Vehículos y precios</th><th>Pernocta</th><th>Dieta por día</th><th>Mínimo</th><th>ADR</th><th>Servicios</th><th></th></tr></thead><tbody>${L.map(k => `<tr>
+    <td><b>${esc(k.nombre)}</b><br><span class="note">${[k.cif, k.localidad, k.contacto, k.telefono, k.email].filter(Boolean).map(esc).join(" · ")}${k.autorizacion ? `<br>Autorización ${esc(k.autorizacion)}` : ""}${k.notas ? `<br>${esc(k.notas)}` : ""}</span></td>
+    <td>${tarifa(k) || "—"}</td><td class="n">${subEur(k.pernocta)}</td><td class="n">${subEur(k.dieta)}</td><td class="n">${subEur(k.minimo)}</td>
+    <td>${k.adr ? `Sí${k.recargoAdr ? ` · recargo ${nf(k.recargoAdr, k.recargoAdr % 1 ? 1 : 0)} %` : ""}` : "No"}</td><td class="n">${nSv(k.id) || "—"}</td>
+    <td class="n"><button class="btn small" data-a="editar" data-tipo="subcontrata" data-id="${k.id}">Editar</button> <button class="btn small danger" data-a="borrarSub" data-id="${k.id}">${ui.conf === "sk" + k.id ? "Pulsa otra vez para eliminar" : "Eliminar"}</button></td></tr>`).join("")}</tbody></table></div>` : ed ? "" : `<div class="empty">Todavía no hay empresas subcontratistas. Añade la primera con su tarifa.</div>`}`;
+}
+function formSubcontrata(k) {
+  const v = k || { nombre: "", cif: "", contacto: "", telefono: "", email: "", localidad: "", autorizacion: "", notas: "", adr: false, recargoAdr: "", pernocta: "", dieta: "", minimo: "", tarifas: {} };
+  const num = x => x === "" || x == null ? "" : String(x), ph = x => String(x).replace(".", ",");
+  const filas = Object.entries(TIPOS_SUB).map(([tk, T]) => {
+    const t = (v.tarifas || {})[tk], on = !!t, dis = on ? "" : " disabled";
+    return `<tr><td><label class="tar-l"><input type="checkbox" name="t_${tk}"${on ? " checked" : ""}> ${esc(T.l)}</label><span class="note">${subCap(T)} · ${esc(subLleva(T))}</span></td>
+      <td class="n"><input class="tar-i" name="km_${tk}" type="number" min="0" step="0.01" value="${on ? num(t.km) : ""}" placeholder="${ph(T.km)}" aria-label="${esc(T.l)}: euros por km"${dis}></td>
+      <td class="n"><input class="tar-i" name="h_${tk}" type="number" min="0" step="0.01" value="${on ? num(t.hora) : ""}" placeholder="${ph(T.hora)}" aria-label="${esc(T.l)}: euros por hora"${dis}></td></tr>`;
+  }).join("");
+  return `<form class="form" data-form="subcontrata" data-id="${k ? k.id : ""}" autocomplete="off"><h3 style="margin-top:0">${k ? "Editar empresa subcontratista" : "Nueva empresa subcontratista"}</h3>
+    <div class="msg err" id="sk-err" hidden></div>
+    <div class="grid">
+      <div class="field"><label for="sk-n">Razón social</label><input id="sk-n" name="nombre" value="${esc(v.nombre)}" required></div>
+      <div class="field"><label for="sk-c">CIF o NIF</label><input id="sk-c" name="cif" value="${esc(v.cif)}"></div>
+      <div class="field"><label for="sk-p">Persona de contacto</label><input id="sk-p" name="contacto" value="${esc(v.contacto)}"></div>
+      <div class="field"><label for="sk-t">Teléfono</label><input id="sk-t" name="telefono" value="${esc(v.telefono)}"></div>
+      <div class="field"><label for="sk-e">Correo electrónico</label><input id="sk-e" name="email" type="email" value="${esc(v.email)}"></div>
+      <div class="field"><label for="sk-l">Localidad</label><input id="sk-l" name="localidad" value="${esc(v.localidad)}"></div>
+      <div class="field"><label for="sk-a">Autorización de transporte</label><input id="sk-a" name="autorizacion" value="${esc(v.autorizacion)}" placeholder="Por ejemplo: MDP 27-000123"></div>
+      <div class="field wide"><label for="sk-o">Notas</label><input id="sk-o" name="notas" value="${esc(v.notas)}" placeholder="Servicios que hace, zonas, condiciones de pago…"></div>
+    </div>
+    <h3 class="subt">Tarifa general</h3>
+    <div class="grid">
+      <div class="field"><label for="sk-pe">Pernocta (€ por noche fuera)</label><input id="sk-pe" name="pernocta" type="number" min="0" step="0.01" value="${num(v.pernocta)}" placeholder="40"></div>
+      <div class="field"><label for="sk-di">Dieta (€ por día de servicio)</label><input id="sk-di" name="dieta" type="number" min="0" step="0.01" value="${num(v.dieta)}" placeholder="25"></div>
+      <div class="field"><label for="sk-mi">Importe mínimo por servicio (€)</label><input id="sk-mi" name="minimo" type="number" min="0" step="0.01" value="${num(v.minimo)}" placeholder="120"></div>
+      <div class="field"><span class="lbl">&nbsp;</span><div class="checks"><label><input type="checkbox" name="adr"${v.adr ? " checked" : ""}> Transporta mercancías peligrosas (ADR)</label></div></div>
+      <div class="field"><label for="sk-ra">Recargo por mercancía peligrosa (%)</label><input id="sk-ra" name="recargoAdr" type="number" min="0" max="100" step="0.1" value="${v.adr ? num(v.recargoAdr) : ""}" placeholder="10"${v.adr ? "" : " disabled"}></div>
+    </div>
+    <h3 class="subt">Precio por vehículo</h3>
+    <p class="note" style="margin:0 0 8px">Marca los vehículos que ofrece la empresa y escribe cuánto cobra por km y por hora con cada uno. Las cifras en gris son solo una orientación.</p>
+    <div class="tw"><table class="tar"><thead><tr><th>Vehículo</th><th style="text-align:right">€ por km</th><th style="text-align:right">€ por hora</th></tr></thead><tbody>${filas}</tbody></table></div>
+    <div class="row" style="margin-top:12px"><button class="btn primary" type="submit">${k ? "Guardar cambios" : "Añadir empresa"}</button><button class="btn" type="button" data-a="cancelar">Cancelar</button></div></form>`;
+}
 
 /* ======================================================================
    Sesión y gestión de usuarios (los datos viven en Firebase)
@@ -1137,6 +1477,7 @@ function vUsuarios() {
     </form>
     <p class="note" style="margin-top:6px">Estado: ${esc(estadoRutas())}.</p>
     <h2>Mi cuenta</h2>
+    <p class="note">Tu contraseña de acceso es también la que activa el modo automático. Solo tú ves el botón «Manual / Automático»: el resto de usuarios planifica siempre a mano.</p>
     <div class="row"><button class="btn" data-a="miCuenta">Cambiar mi contraseña</button><button class="btn" data-a="salir">Cerrar sesión</button></div>
   </div></section>`;
 }
@@ -1145,7 +1486,7 @@ function modalCuenta() {
   const c = ui.cuenta || {};
   return `<div class="modal-bg"><form class="modal" data-form="cuenta" role="dialog" aria-modal="true" aria-labelledby="cu-t" autocomplete="off">
     <h3 id="cu-t">Cambiar mi contraseña</h3>
-    <p class="note" style="margin:0">Cuenta de <b>${esc(YO.nombre)}</b>.</p>
+    <p class="note" style="margin:0">Cuenta de <b>${esc(YO.nombre)}</b>. La contraseña nueva valdrá para entrar desde cualquier ordenador o móvil${esAdmin() ? " y también para activar el modo automático" : ""}.</p>
     ${c.err ? `<div class="msg err">${esc(c.err)}</div>` : ""}
     <div class="field"><label for="cu-a">Contraseña actual</label><input id="cu-a" name="actual" type="password" autocomplete="current-password" required></div>
     <div class="field"><label for="cu-1">Contraseña nueva</label><input id="cu-1" name="clave" type="password" autocomplete="new-password" required></div>
@@ -1183,7 +1524,7 @@ async function guardarClaveRutas(k) {
 /* ======================================================================
    Interfaz
    ====================================================================== */
-const ui = { tab: "plan", day: null, view: "servicios", sel: null, selT: null, selD: null, flota: "camiones", edit: null, msg: null, cliente: null, buscar: "", todos: false, vb: null, vbShown: null, fitKey: "", borrar: false, pwd: null, conf: null, cuenta: null, saliendo: false };
+const ui = { tab: "plan", day: null, view: "servicios", sel: null, selT: null, selD: null, flota: "camiones", edit: null, msg: null, cliente: null, buscar: "", todos: false, vb: null, vbShown: null, fitKey: "", borrar: false, pwd: null, conf: null, cuenta: null, saliendo: false, subAbierto: null };
 const app = document.getElementById("app");
 
 function render() {
@@ -1193,15 +1534,19 @@ function render() {
   <header class="top">
     <div class="brand"><div class="mark">DP</div><div><b>Despacho de portes</b><small>${esc(E.nombre)}</small></div></div>
     <nav class="nav" aria-label="Secciones">${[["plan","Planificación"],["servicios","Servicios"],["clientes","Clientes"],["flota","Flota y personal"],["resumen","Resumen legal"]].concat(esAdmin() ? [["usuarios","Gestión de usuarios"]] : []).map(([k, l]) => `<button data-a="tab" data-v="${k}" aria-current="${ui.tab === k ? "page" : "false"}">${l}</button>`).join("")}</nav>
-    <div class="mode"><div class="switch" role="group" aria-label="Modo de asignación"><button data-a="modo" data-v="manual" aria-pressed="${E.modo === "manual"}">Manual</button><button data-a="modo" data-v="auto" aria-pressed="${E.modo === "auto"}">Automático</button></div><span class="save" id="save"></span><div class="sesion"><button class="hbtn" data-a="miCuenta" title="Cambiar mi contraseña">${esc(YO.nombre)}</button><button class="hbtn" data-a="salir"${ui.saliendo ? " disabled" : ""}>${ui.saliendo ? "Saliendo…" : "Salir"}</button></div></div>
+    <div class="mode">${esAdmin() ? `<div class="switch" role="group" aria-label="Modo de asignación"><button data-a="modo" data-v="manual" aria-pressed="${E.modo === "manual"}">Manual</button><button data-a="modo" data-v="auto" aria-pressed="${E.modo === "auto"}">Automático</button></div>` : ""}<span class="save" id="save"></span><div class="sesion"><span class="quien${esAdmin() ? " adm" : ""}" title="Has entrado como ${esc(YO.nombre)}">${esc(YO.nombre)}</span><button class="hbtn" data-a="miCuenta" title="Cambiar mi contraseña de acceso"><span class="hl">Cambiar contraseña</span><span class="hs">Contraseña</span></button><button class="hbtn" data-a="salir"${ui.saliendo ? " disabled" : ""}>${ui.saliendo ? "Saliendo…" : "Salir"}</button></div></div>
   </header>
   ${["plan", "servicios", "resumen"].includes(ui.tab) ? dayBar() : ""}
   <div class="body">${ui.tab === "plan" ? vPlan() : ui.tab === "servicios" ? vServicios() : ui.tab === "clientes" ? vClientes() : ui.tab === "flota" ? vFlota() : ui.tab === "usuarios" ? vUsuarios() : vResumen()}</div>
-  ${ui.pwd ? `<div class="modal-bg"><form class="modal" data-form="pwd" role="dialog" aria-modal="true" aria-labelledby="pwd-t"><h3 id="pwd-t">Activar el modo automático</h3><p class="note" style="margin:0">Introduce la contraseña para que el programa asigne vehículos y conductores.</p><input id="pwd-in" name="clave" type="password" autocomplete="off" aria-label="Contraseña">${ui.pwd.err ? `<div class="msg err">${esc(ui.pwd.err)}</div>` : ""}<div class="row" style="justify-content:flex-end"><button class="btn" type="button" data-a="pwdNo">Cancelar</button><button class="btn primary" type="submit">Activar</button></div></form></div>` : ""}${ui.cuenta ? modalCuenta() : ""}`;
+  ${ui.pwd ? `<div class="modal-bg"><form class="modal" data-form="pwd" role="dialog" aria-modal="true" aria-labelledby="pwd-t"><h3 id="pwd-t">Activar el modo automático</h3><p class="note" style="margin:0">Escribe tu contraseña de acceso de administrador para que el programa asigne vehículos y conductores.</p><input id="pwd-in" name="clave" type="password" autocomplete="current-password" aria-label="Contraseña de acceso"${ui.pwd.ocupado ? " disabled" : ""}>${ui.pwd.err ? `<div class="msg err">${esc(ui.pwd.err)}</div>` : ""}<div class="row" style="justify-content:flex-end"><button class="btn" type="button" data-a="pwdNo">Cancelar</button><button class="btn primary" type="submit"${ui.pwd.ocupado ? " disabled" : ""}>${ui.pwd.ocupado ? "Comprobando…" : "Activar"}</button></div></form></div>` : ""}${ui.cuenta ? modalCuenta() : ""}`;
   paintSave();
   if (ui.pwd) { const i = document.getElementById("pwd-in"); if (i) i.focus(); }
   if (ui.cuenta && !ui.cuenta.ocupado) { const i = document.getElementById("cu-a"); if (i) i.focus(); }
   if (ui.tab === "plan") drawMap();
+  if (document.getElementById("pp-svg")) {
+    pintarPicker();
+    if (ui.edit && ui.edit.tipo === "punto" && !ui.edit.visto) { ui.edit.visto = true; const f = document.querySelector("form[data-form=punto]"); if (f) { f.scrollIntoView({ block: "start" }); const n = f.querySelector("[name=nombre]"); if (n && !n.value) n.focus({ preventScroll: true }); } }
+  }
 }
 function paintSave() { const el = document.getElementById("save"); if (!el) return; el.className = "save " + store.mode; const t = store.mode === "db" ? "Guardado en la nube" : store.mode === "pend" ? "Guardando…" : store.mode === "local" ? "Sin conexión: cambios pendientes de subir" : "Sin guardar"; el.title = t; el.innerHTML = `<i></i><span>${t}</span>`; }
 function msg() { if (!ui.msg) return ""; const m = ui.msg; ui.msg = null; return `<div class="msg ${m.t}">${m.h}</div>`; }
@@ -1288,10 +1633,10 @@ function pop(sims, curso) {
 function leftSvc(list, sims) {
   if (ui.sel) { const s = S_(ui.sel); if (s && s.fecha === dayStr(ui.day)) return panelAsig(s, sims); }
   if (!list.length) return `<div class="empty">No hay servicios este día. Elige otro día en la barra superior o añade uno en «Servicios».</div>`;
-  return `<p class="note" style="margin-top:0">Pulsa una chincheta o un servicio para asignarle vehículo y conductor.</p>
+  return `<p class="note" style="margin-top:0">Pulsa una chincheta o un servicio para asignarle vehículo y conductor o para subcontratarlo.</p>
     ${list.map(s => { const a = state.asig[s.id]; return `<div class="card click" data-a="sel" data-id="${s.id}"><h4><span class="dot" style="background:${MERC[s.mercancia].c}"></span>${esc(lab(s))}</h4>
       <div class="note">${esc(nombreCliente(s))}<br>${esc(origenDe(s)?.nombre || "—")} → ${esc(s.destino?.nombre || "—")}</div>
-      <div class="row" style="margin-top:6px">${s.sub ? `<span class="chip">Subcontratado${s.subTransp ? " · " + esc(s.subTransp) : ""}</span>` : a ? `<span class="chip ok">${esc(T_(a.camionId)?.matricula || "")} · ${a.conductorId ? esc(D_(a.conductorId)?.nombre || "") : "sin conductor"}</span>` : `<span class="chip warn">Pendiente</span>`}</div></div>`; }).join("")}`;
+      <div class="row" style="margin-top:6px">${s.sub ? `<span class="chip">Subcontratado</span><span class="note">${esc(nombreSub(s))}${costeSub(s) != null ? " · " + subEur(costeSub(s)) : ""}</span>` : a ? `<span class="chip ok">${esc(T_(a.camionId)?.matricula || "")} · ${a.conductorId ? esc(D_(a.conductorId)?.nombre || "") : "sin conductor"}</span>` : `<span class="chip warn">Pendiente</span>`}</div></div>`; }).join("")}`;
 }
 function bars(pk, K) {
   const one = (l, u, m, un, d = 0) => { const p = m > 0 ? u / m * 100 : (u > 0 ? 101 : 0); return `<div class="bar"><div class="bl"><span>${l}</span><span>${nf(u, d)} de ${nf(m, d)} ${un} · ${nf(Math.min(p, 999))} %</span></div><div class="tr" role="progressbar" aria-label="${l}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(Math.min(p, 100))}"><div class="fl ${p > 100 ? "over" : p >= 85 ? "hi" : ""}" style="width:${Math.min(100, p)}%"></div></div></div>`; };
@@ -1304,10 +1649,8 @@ function legalBar(r) {
   <dl class="kv"><dt>Inicio</dt><dd>${fmtT(r.inicio, ui.day)}</dd><dt>Regreso a base</dt><dd>${fmtT(r.fin, ui.day)}</dd><dt>Pausas</dt><dd>${r.pausas}</dd><dt>Pernoctas</dt><dd>${r.pern || "No"}</dd><dt>Dietas</dt><dd>${eur(r.dietas)}</dd></dl>${desglose(r)}`;
 }
 function panelAsig(s, sims) {
-  if (s.sub) return `<button class="btn small" data-a="volver">‹ Servicios del día</button><div class="card" style="margin-top:10px"><h4><span class="dot" style="background:${MERC[s.mercancia].c}"></span>${esc(lab(s))}</h4><div class="note">${esc(nombreCliente(s))}</div>
-    <div class="msg ok" style="margin-top:8px">Servicio subcontratado${s.subTransp ? ` a ${esc(s.subTransp)}` : ""}${s.subCoste ? ` por ${eur(s.subCoste)}` : ""}${s.precio && s.subCoste ? `. Margen: ${eur(s.precio - s.subCoste)}` : ""}.</div>
-    <p class="note">No se planifica con la flota propia. Para cambiarlo, edítalo en «Servicios».</p></div>`;
-  const E = state.empresa, D = ui.day, a = state.asig[s.id], auto = E.modo === "auto", from = origenDe(s);
+  const E = state.empresa, D = ui.day, a = s.sub ? null : state.asig[s.id], auto = E.modo === "auto", from = origenDe(s);
+  const subOn = !a && (!!s.sub || ui.subAbierto === s.id);
   const trucks = state.camiones.map(c => ({ c, e: truckErrors(s, c, D) }));
   const cs = a ? a.camionId : "";
   const drivers = state.conductores.map(d => ({ d, e: cs ? driverErrors(s, T_(cs), d, D) : [] }));
@@ -1325,18 +1668,19 @@ function panelAsig(s, sims) {
       <dl class="kv"><dt>Recogida</dt><dd>${esc(from?.nombre || "—")}${s.tipo === "recogida" && s.vCarga ? ` · ${esc(s.vCarga.desde)}-${esc(s.vCarga.hasta)}` : ""}</dd><dt>Destino</dt><dd>${esc(s.destino?.nombre || "—")} · ${esc(s.vEntrega?.desde || "")}-${esc(s.vEntrega?.hasta || "")}${+s.vEntrega?.dia ? ` (+${s.vEntrega.dia} d)` : ""}</dd>
       <dt>Mercancía</dt><dd>${esc(MERC[s.mercancia].l)}${s.adrClase ? ` · clase ${esc(s.adrClase)}` : ""}${s.temperatura !== "" && s.temperatura != null ? ` · ${esc(s.temperatura)} °C` : ""}</dd><dt>Carga</dt><dd>${nf(s.peso)} kg · ${s.palets} palés · ${nf(s.volumen, 1)} m³</dd></dl>
       ${from && s.destino ? `<div class="row" style="margin-top:8px"><a class="btn small" target="_blank" rel="noopener" href="${gmaps([from, s.destino])}">Ver en Google Maps</a></div>` : ""}</div>
-    <div class="field"><label for="as-c">Vehículo</label><select id="as-c" data-a="asigC" ${auto ? "disabled" : ""}><option value="">Sin asignar</option>${trucks.map(({ c, e }) => `<option value="${c.id}" ${c.id === cs ? "selected" : ""} ${e.length ? "disabled" : ""}>${esc(c.matricula)} · ${esc(CONFIG[c.config]?.l || "")}${e.length ? " (no apto)" : ""}</option>`).join("")}</select></div>
+    ${subOn ? "" : `<div class="field"><label for="as-c">Vehículo</label><select id="as-c" data-a="asigC" ${auto ? "disabled" : ""}><option value="">Sin asignar</option>${trucks.map(({ c, e }) => `<option value="${c.id}" ${c.id === cs ? "selected" : ""} ${e.length ? "disabled" : ""}>${esc(c.matricula)} · ${esc(CONFIG[c.config]?.l || "")}${e.length ? " (no apto)" : ""}</option>`).join("")}</select></div>
     <div class="field" style="margin-top:8px"><label for="as-d">Conductor</label><select id="as-d" data-a="asigD" ${auto || !cs ? "disabled" : ""}><option value="">${cs ? "Elige conductor" : "Elige antes el vehículo"}</option>${drivers.map(({ d, e }) => `<option value="${d.id}" ${a && a.conductorId === d.id ? "selected" : ""} ${e.length ? "disabled" : ""}>${esc(d.nombre)} · ${esc(d.horaInicio)}-${esc(d.horaFin)}${e.length ? " (no apto)" : ""}</option>`).join("")}</select>
-      ${cs ? `<span class="note">El conductor lleva el vehículo durante toda su ruta del día.</span>` : ""}</div>
+      ${cs ? `<span class="note">El conductor lleva el vehículo durante toda su ruta del día.</span>` : ""}</div>`}
     ${a && routeList(a.camionId, D, state.asig).length > 1 ? `<div class="checks" style="margin-top:8px"><label><input type="checkbox" data-a="ns" ${a.nuevaSalida ? "checked" : ""} ${auto ? "disabled" : ""}> Volver a la base a recargar antes de este servicio</label></div>` : ""}
     ${a && !auto ? `<div class="row" style="margin-top:10px"><button class="btn danger small" data-a="quitar">Quitar asignación</button></div>` : ""}
+    ${a ? "" : panelSub(s, auto)}
     ${auto ? `<p class="note">Cambia a modo manual para modificar la asignación.</p>` : ""}
-    ${!a ? `<details style="margin-top:8px"><summary class="note">¿Por qué hay vehículos no aptos?</summary>${trucks.filter(x => x.e.length).map(({ c, e }) => `<div class="note" style="margin:4px 0"><b>${esc(c.matricula)}:</b> ${esc(e.join(" "))}</div>`).join("") || `<div class="note">Todos son aptos.</div>`}</details>` : ""}
+    ${!a && !subOn ? `<details style="margin-top:8px"><summary class="note">¿Por qué hay vehículos no aptos?</summary>${trucks.filter(x => x.e.length).map(({ c, e }) => `<div class="note" style="margin:4px 0"><b>${esc(c.matricula)}:</b> ${esc(e.join(" "))}</div>`).join("") || `<div class="note">Todos son aptos.</div>`}</details>` : ""}
     ${det}`;
 }
 function leftRutas(sims, curso, modo) {
   const rs = Object.values(sims), auto = state.empresa.modo === "auto", D = ui.day;
-  if (!rs.length && !curso.length) return `<div class="empty">Todavía no hay rutas este día. Asígnalas desde «Servicios» o activa el modo automático.</div>`;
+  if (!rs.length && !curso.length) return `<div class="empty">Todavía no hay rutas este día. Asígnalas desde «Servicios»${esAdmin() ? " o activa el modo automático" : ""}.</div>`;
   const sel = modo === "camion" ? ui.selT : ui.selD;
   const card = (r, enc) => {
     const pk = r.salidas.reduce((m, s) => ({ kg: Math.max(m.kg, s.pk.kg), pal: Math.max(m.pal, s.pk.pal), m3: Math.max(m.m3, s.pk.m3) }), { kg: 0, pal: 0, m3: 0 });
@@ -1460,7 +1804,7 @@ function vServicios() {
     <div class="row"><h1>Servicios ${ui.todos ? "de todas las fechas" : "del " + esc(fechaLarga(ui.day))}</h1><span class="spacer"></span>
       <label class="checks"><label><input type="checkbox" data-a="todos" ${ui.todos ? "checked" : ""}> Ver todas las fechas</label></label>
       ${ed ? "" : `<button class="btn primary" data-a="nuevo" data-v="servicio">Añadir servicio</button>`}</div>
-    <p class="lead">Elige un destino guardado para rellenar dirección y horario de recepción, o escribe una localidad. Un servicio puede salir de la base con la mercancía cargada o recoger la mercancía en otro punto.</p>
+    <p class="lead">Elige uno de los puntos logísticos del cliente para rellenar la ubicación y el horario, o escribe una localidad. Un servicio puede salir de la base con la mercancía cargada o recoger la mercancía en otro punto.</p>
     ${msg()}${ed ? formServicio(ed.id ? S_(ed.id) : null, ed.copia) : ""}
     ${list.length ? `<div class="tw"><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Recorrido</th><th>Mercancía</th><th>Carga</th><th>Ventanas</th><th>Precio</th><th>Estado</th><th></th></tr></thead><tbody>
       ${list.map(s => { const a = state.asig[s.id]; return `<tr class="${s.fecha === ds && ui.todos ? "today-row" : ""}"><td class="n">${fechaCorta(s.fecha)}</td><td><b>${esc(nombreCliente(s))}</b>${s.ref ? `<br><span class="note">Ref. ${esc(s.ref)}</span>` : ""}</td>
@@ -1468,21 +1812,43 @@ function vServicios() {
         <td class="n">${nf(s.peso)} kg<br>${s.palets} palés · ${nf(s.volumen, 1)} m³</td>
         <td class="n">${s.tipo === "recogida" && s.vCarga ? `Carga ${esc(s.vCarga.desde)}-${esc(s.vCarga.hasta)}<br>` : ""}Entrega ${esc(s.vEntrega?.desde || "—")}-${esc(s.vEntrega?.hasta || "—")}${+s.vEntrega?.dia ? ` (+${s.vEntrega.dia} d)` : ""}</td>
         <td class="n">${s.precio ? eur(s.precio) : "—"}</td>
-        <td>${s.sub ? `<span class="chip">Subcontratado</span>` : a ? `<span class="chip ok">${esc(T_(a.camionId)?.matricula || "")}</span>` : `<span class="chip warn">Pendiente</span>`}${s.exento ? `<br><span class="chip" style="margin-top:4px">Exento DGT</span>` : ""}</td>
+        <td>${s.sub ? `<span class="chip">Subcontratado</span><br><span class="note">${esc(nombreSub(s))}${costeSub(s) != null ? " · " + subEur(costeSub(s)) : ""}</span>` : a ? `<span class="chip ok">${esc(T_(a.camionId)?.matricula || "")}</span>` : `<span class="chip warn">Pendiente</span>`}${s.exento ? `<br><span class="chip" style="margin-top:4px">Exento DGT</span>` : ""}</td>
         <td class="n"><button class="btn small" data-a="editar" data-tipo="servicio" data-id="${s.id}">Editar</button> <button class="btn small" data-a="duplicar" data-id="${s.id}">Duplicar</button> <button class="btn small danger" data-a="eliminar" data-tipo="servicio" data-id="${s.id}">Eliminar</button></td></tr>`; }).join("")}
     </tbody></table></div>` : `<div class="empty">No hay servicios ${ui.todos ? "" : "este día"}. Añade el primero o cambia de día en la barra superior.</div>`}
   </div></section>`;
 }
+const USOS = { ambos: "Carga y descarga", carga: "Solo carga", descarga: "Solo descarga" };
+const ACCESOS = { muelle: "Muelle de carga", calle: "Descarga en calle", restringido: "Acceso restringido a pesados" };
+const usoDe = d => USOS[d && d.uso] ? d.uso : "ambos";
+const puntosDe = kid => state.destinos.filter(d => d.clienteId === kid);
+const numOk = x => x !== "" && x != null && isFinite(+x);
+function opcionesPuntos(pre, clienteId, selId) {
+  const rol = pre === "o" ? "carga" : "descarga", lista = clienteId ? puntosDe(clienteId) : [];
+  const extra = selId && !lista.some(d => d.id === selId) ? state.destinos.filter(d => d.id === selId) : [];
+  let h = `<option value="">Otra localidad…</option>`;
+  if (!clienteId) h += `<option value="" disabled>— Elige antes el cliente para ver sus puntos logísticos —</option>`;
+  else if (!lista.length) h += `<option value="" disabled>— Este cliente no tiene puntos logísticos —</option>`;
+  lista.concat(extra).forEach(d => {
+    const u = usoDe(d), no = u !== "ambos" && u !== rol;
+    h += `<option value="${d.id}"${d.id === selId ? " selected" : ""}${no && d.id !== selId ? " disabled" : ""}>${esc(d.nombre)}${no ? (u === "carga" ? " (solo carga)" : " (solo descarga)") : ""}${d.clienteId !== clienteId ? " · de otro cliente" : ""}</option>`;
+  });
+  return h;
+}
+function libres(form, pre) {
+  const sl = form.querySelector(`[name=${pre}Dest]`); if (!sl) return;
+  form.querySelectorAll(`[data-libre="${pre}"]`).forEach(x => { x.hidden = !!sl.value; });
+}
 function placeFields(pre, label, p, clienteId) {
-  const dests = state.destinos;
-  return `<div class="field"><label for="${pre}-d">${label}: destino guardado</label><select id="${pre}-d" name="${pre}Dest"><option value="">Otra localidad…</option>${dests.map(d => `<option value="${d.id}" ${p && p.destinoId === d.id ? "selected" : ""}>${esc(d.nombre)}${d.clienteId && d.clienteId === clienteId ? " ★" : ""}</option>`).join("")}</select></div>
-    <div class="field"><label for="${pre}-n">o localidad</label><input id="${pre}-n" name="${pre}Nombre" list="lugares" value="${esc(p && !p.destinoId ? p.nombre : "")}" placeholder="Escribe o elige"></div>
-    <div class="field"><label for="${pre}-la">Latitud (si no está en la lista)</label><input id="${pre}-la" name="${pre}Lat" type="number" step="0.0001" value="${p && !p.destinoId && !GAZ[p.nombre] ? p.lat : ""}"></div>
-    <div class="field"><label for="${pre}-lo">Longitud (si no está en la lista)</label><input id="${pre}-lo" name="${pre}Lon" type="number" step="0.0001" value="${p && !p.destinoId && !GAZ[p.nombre] ? p.lon : ""}"></div>`;
+  const sel = p && p.destinoId && state.destinos.some(d => d.id === p.destinoId) ? p.destinoId : "";
+  const libre = !sel, oc = libre ? "" : " hidden";
+  return `<div class="field wide"><label for="${pre}-d">${label}: punto logístico del cliente</label><select id="${pre}-d" name="${pre}Dest">${opcionesPuntos(pre, clienteId, sel)}</select></div>
+    <div class="field" data-libre="${pre}"${oc}><label for="${pre}-n">Localidad</label><input id="${pre}-n" name="${pre}Nombre" list="lugares" value="${esc(p && libre ? p.nombre : "")}" placeholder="Escribe o elige"></div>
+    <div class="field" data-libre="${pre}"${oc}><label for="${pre}-la">Latitud (si no está en la lista)</label><input id="${pre}-la" name="${pre}Lat" type="number" step="any" value="${p && libre && !GAZ[p.nombre] ? p.lat : ""}"></div>
+    <div class="field" data-libre="${pre}"${oc}><label for="${pre}-lo">Longitud (si no está en la lista)</label><input id="${pre}-lo" name="${pre}Lon" type="number" step="any" value="${p && libre && !GAZ[p.nombre] ? p.lon : ""}"></div>`;
 }
 const datalist = () => `<datalist id="lugares">${Object.keys(GAZ).map(n => `<option value="${esc(n)}">`).join("")}</datalist>`;
 function formServicio(s, copia) {
-  const v = s ? JSON.parse(JSON.stringify(s)) : { fecha: dayStr(ui.day), clienteId: ui.cliente || "", ref: "", tipo: "base", origen: null, destino: null, mercancia: "paletizada", peso: "", palets: "", volumen: "", vCarga: { desde: "08:00", hasta: "10:00" }, vEntrega: { desde: "09:00", hasta: "13:00", dia: 0 }, tCarga: 30, tDescarga: 45, precio: "", adrClase: "", adrCisterna: false, temperatura: "", largo: "", ancho: "", acc: false, exento: false, obs: "" };
+  const v = s ? JSON.parse(JSON.stringify(s)) : { fecha: dayStr(ui.day), clienteId: K_(ui.cliente) ? ui.cliente : "", ref: "", tipo: "base", origen: null, destino: null, mercancia: "paletizada", peso: "", palets: "", volumen: "", vCarga: { desde: "08:00", hasta: "10:00" }, vEntrega: { desde: "09:00", hasta: "13:00", dia: 0 }, tCarga: 30, tDescarga: 45, precio: "", adrClase: "", adrCisterna: false, temperatura: "", largo: "", ancho: "", acc: false, exento: false, obs: "" };
   const m = v.mercancia;
   return `<form class="form" data-form="servicio" data-id="${s && !copia ? s.id : ""}">
     <h3 style="margin-top:0">${copia ? "Duplicar servicio" : s ? "Editar servicio" : "Nuevo servicio"}</h3>
@@ -1499,7 +1865,7 @@ function formServicio(s, copia) {
     <div class="box"><span class="lbl">Destino de la mercancía</span><div class="grid">${placeFields("de", "Entrega", v.destino, v.clienteId)}
       <div class="field"><label for="f-ved">Entrega desde</label><input id="f-ved" name="veD" type="time" value="${esc(v.vEntrega?.desde || "")}"></div><div class="field"><label for="f-veh">Entrega hasta</label><input id="f-veh" name="veH" type="time" value="${esc(v.vEntrega?.hasta || "")}"></div>
       <div class="field"><label for="f-dia">Día de entrega</label><select id="f-dia" name="veDia">${[0, 1, 2, 3].map(n => `<option value="${n}" ${(+v.vEntrega?.dia || 0) === n ? "selected" : ""}>${n === 0 ? "El mismo día" : n === 1 ? "Al día siguiente" : `A los ${n} días`}</option>`).join("")}</select></div></div>
-      <p class="note">Si eliges un destino guardado y dejas el horario vacío, se usa su horario de recepción.</p></div>
+      <p class="note">Al elegir un punto logístico se copia su horario; puedes cambiarlo solo para este servicio.</p></div>
     <div class="grid" style="margin-top:10px">
       <div class="field"><label for="f-kg">Peso (kg)</label><input id="f-kg" name="peso" type="number" min="0" value="${v.peso}" required></div>
       <div class="field"><label for="f-pal">Palés</label><input id="f-pal" name="palets" type="number" min="0" value="${v.palets}"></div>
@@ -1510,9 +1876,7 @@ function formServicio(s, copia) {
     <div class="box" id="f-adr" ${m === "adr" ? "" : "hidden"}><span class="lbl">Mercancía peligrosa</span><div class="grid"><div class="field"><label for="f-ac">Clase ONU</label><select id="f-ac" name="adrClase"><option value="">—</option>${["1 Explosivos","2 Gases","3 Líquidos inflamables","4 Sólidos inflamables","5 Comburentes y peróxidos orgánicos","6 Tóxicas e infecciosas","7 Material radiactivo","8 Corrosivas","9 Peligrosas varias"].map(x => { const n = x.split(" ")[0]; return `<option value="${n}" ${String(v.adrClase) === n ? "selected" : ""}>${esc(x)}</option>`; }).join("")}</select></div><div class="field"><span class="lbl">&nbsp;</span><div class="checks"><label><input type="checkbox" name="adrCisterna" ${v.adrCisterna ? "checked" : ""}> Viaja en cisterna</label></div></div></div></div>
     <div class="box" id="f-temp" ${m === "refrigerada" || m === "congelada" ? "" : "hidden"}><span class="lbl">Temperatura controlada</span><div class="grid"><div class="field"><label for="f-tt">Temperatura (°C)</label><input id="f-tt" name="temperatura" type="number" step="0.5" value="${v.temperatura}"></div></div></div>
     <div class="box" id="f-vol" ${m === "voluminosa" ? "" : "hidden"}><span class="lbl">Transporte especial</span><div class="grid"><div class="field"><label for="f-la">Largo (m)</label><input id="f-la" name="largo" type="number" min="0" step="0.01" value="${v.largo}"></div><div class="field"><label for="f-an">Ancho (m)</label><input id="f-an" name="ancho" type="number" min="0" step="0.01" value="${v.ancho}"></div><div class="field"><span class="lbl">&nbsp;</span><div class="checks"><label><input type="checkbox" name="acc" ${v.acc ? "checked" : ""}> Tiene autorización complementaria de circulación</label></div></div></div></div>
-    <div class="box"><span class="lbl">Subcontratación</span><div class="grid"><div class="field"><span class="lbl">&nbsp;</span><div class="checks"><label><input type="checkbox" name="sub" ${v.sub ? "checked" : ""}> Servicio subcontratado</label></div></div>
-      <div class="field"><label for="f-st">Transportista colaborador</label><input id="f-st" name="subTransp" value="${esc(v.subTransp || "")}"></div><div class="field"><label for="f-sc">Coste de la subcontratación (€)</label><input id="f-sc" name="subCoste" type="number" min="0" step="0.01" value="${v.subCoste || ""}"></div></div>
-      <p class="note">Un servicio subcontratado no se planifica con la flota propia: lo realiza el transportista colaborador.</p></div>
+    ${cajaSubServicio(v)}
     <div class="grid" style="margin-top:10px"><div class="field wide"><div class="checks"><label><input type="checkbox" name="exento" ${v.exento ? "checked" : ""}> Exento de las restricciones de la DGT (autorización especial o excepción de la resolución vigente)</label></div></div>
       <div class="field wide"><label for="f-o">Observaciones</label><textarea id="f-o" name="obs">${esc(v.obs)}</textarea></div></div>
     ${datalist()}
@@ -1523,13 +1887,13 @@ function formServicio(s, copia) {
 function vClientes() {
   const q = ui.buscar.trim().toLowerCase();
   const ks = state.clientes.filter(k => !q || k.nombre.toLowerCase().includes(q) || (k.cif || "").toLowerCase().includes(q));
-  const sel = ui.cliente ? K_(ui.cliente) : null;
+  const sel = ui.cliente ? K_(ui.cliente) : null, huerf = state.destinos.filter(d => !K_(d.clienteId));
   const ed = ui.edit && ui.edit.tipo === "cliente" ? ui.edit : null;
   return `<aside class="left"><div class="row"><h1 style="font-size:22px">Clientes</h1><span class="spacer"></span><button class="btn small primary" data-a="nuevo" data-v="cliente">Añadir</button></div>
     <input class="search" type="search" data-a="buscar" placeholder="Buscar por nombre o CIF" value="${esc(ui.buscar)}" style="margin:8px 0 10px" aria-label="Buscar clientes">
-    ${ks.map(k => { const n = state.servicios.filter(s => s.clienteId === k.id).length; return `<div class="card click ${sel && sel.id === k.id ? "sel" : ""}" data-a="cliente" data-id="${k.id}"><h4>${esc(k.nombre)}</h4><div class="note">${esc(k.cif || "")} · ${n} ${n === 1 ? "servicio" : "servicios"}</div></div>`; }).join("") || `<div class="empty">Sin resultados.</div>`}
+    ${ks.map(k => { const n = state.servicios.filter(s => s.clienteId === k.id).length; return `<div class="card click ${sel && sel.id === k.id ? "sel" : ""}" data-a="cliente" data-id="${k.id}"><h4>${esc(k.nombre)}</h4><div class="note">${esc(k.cif || "")} · ${n} ${n === 1 ? "servicio" : "servicios"} · ${puntosDe(k.id).length} ${puntosDe(k.id).length === 1 ? "punto" : "puntos"}</div></div>`; }).join("") || `<div class="empty">Sin resultados.</div>`}${huerf.length ? `<div class="card click ${ui.cliente === "__sin" ? "sel" : ""}" data-a="cliente" data-id="__sin"><h4>Puntos sin cliente</h4><div class="note">${huerf.length} ${huerf.length === 1 ? "punto logístico" : "puntos logísticos"} por asignar</div></div>` : ""}
   </aside>
-  <section class="center"><div class="scroll">${msg()}${ed ? formCliente(ed.id ? K_(ed.id) : null) : sel ? fichaCliente(sel) : `<div class="empty">Elige un cliente para ver su ficha, sus destinos y los servicios contratados.</div>`}</div></section>`;
+  <section class="center"><div class="scroll">${msg()}${ed ? formCliente(ed.id ? K_(ed.id) : null) : sel ? fichaCliente(sel) : ui.cliente === "__sin" && huerf.length ? fichaSinCliente() : `<div class="empty">Elige un cliente para ver su ficha, sus puntos logísticos y los servicios contratados.</div>`}</div></section>`;
 }
 function fichaCliente(k) {
   const svs = state.servicios.filter(s => s.clienteId === k.id).sort((a, b) => b.fecha.localeCompare(a.fecha));
@@ -1538,18 +1902,16 @@ function fichaCliente(k) {
   let enPlazo = 0, conHora = 0, km = 0;
   svs.forEach(s => { const a = state.asig[s.id]; const r = a && allR[dayNum(s.fecha)] ? allR[dayNum(s.fecha)][a.camionId] : null; const x = r ? r.svc[s.id] : null; if (x) { conHora++; if (!x.tarde && !x.tardeCarga) enPlazo++; } const o = origenDe(s); if (o && s.destino) km += dist(o, s.destino); });
   const importe = svs.reduce((t, s) => t + (+s.precio || 0), 0);
-  const dests = state.destinos.filter(d => d.clienteId === k.id);
   return `<div class="row"><h1>${esc(k.nombre)}</h1><span class="spacer"></span><button class="btn" data-a="editar" data-tipo="cliente" data-id="${k.id}">Editar</button><button class="btn primary" data-a="nuevoSvcCliente" data-id="${k.id}">Nuevo servicio</button></div>
     <p class="lead">${esc(k.cif || "")}${k.contacto ? " · " + esc(k.contacto) : ""}${k.telefono ? " · " + esc(k.telefono) : ""}${k.email ? " · " + esc(k.email) : ""}${k.notas ? `<br>${esc(k.notas)}` : ""}</p>
     <div class="stats"><div class="stat"><b>${svs.length}</b><span>Servicios contratados</span></div><div class="stat"><b>${fut}</b><span>Pendientes de realizar</span></div><div class="stat"><b>${asg}</b><span>Con vehículo asignado</span></div>
       <div class="stat"><b>${conHora ? nf(enPlazo / conHora * 100) + " %" : "—"}</b><span>Entregas previstas en plazo</span></div><div class="stat"><b>${nf(km)}</b><span>Km estimados con carga</span></div><div class="stat"><b>${eur(importe)}</b><span>Importe de los portes</span></div></div>
-    <h2>Destinos del cliente</h2>
-    ${dests.length ? `<div class="tw"><table><thead><tr><th>Destino</th><th>Localidad</th><th>Recepción</th><th>Acceso</th><th>Notas</th></tr></thead><tbody>${dests.map(d => `<tr><td><b>${esc(d.nombre)}</b></td><td>${esc(d.lugar?.nombre || "")}</td><td class="n">${esc(d.desde)}-${esc(d.hasta)}</td><td>${esc({ muelle: "Muelle de carga", calle: "Descarga en calle", restringido: "Acceso restringido a pesados" }[d.acceso] || d.acceso || "")}</td><td>${esc(d.notas || "")}</td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">Sin destinos guardados. Añádelos en Flota y personal › Destinos.</div>`}
+    ${seccionPuntos(k.id)}
     <h2>Servicios contratados</h2>
     ${svs.length ? `<div class="tw"><table><thead><tr><th>Fecha</th><th>Referencia</th><th>Recorrido</th><th>Mercancía</th><th>Entrega prevista</th><th>Vehículo y conductor</th><th>Precio</th><th>Estado</th></tr></thead><tbody>
       ${svs.map(s => { const a = state.asig[s.id], D = dayNum(s.fecha), r = a && allR[D] ? allR[D][a.camionId] : null, x = r ? r.svc[s.id] : null;
         const est = s.sub ? `<span class="chip">Subcontratado</span>` : D < hoy ? (a ? `<span class="chip">Realizado</span>` : `<span class="chip err">Sin realizar</span>`) : !a ? `<span class="chip warn">Pendiente</span>` : x && (x.tarde || x.tardeCarga) ? `<span class="chip err">Fuera de plazo</span>` : `<span class="chip ok">Planificado</span>`;
-        return `<tr><td class="n"><button class="btn small" data-a="irDia" data-v="${D}">${fechaCorta(s.fecha)}</button></td><td>${esc(s.ref || "—")}</td><td>${esc(origenDe(s)?.nombre || "—")} → ${esc(s.destino?.nombre || "—")}</td><td>${esc(MERC[s.mercancia].l)}</td><td class="n">${x ? fmtT(x.llegada, D) : "—"}</td><td>${a ? esc(T_(a.camionId)?.matricula || "") + (a.conductorId ? " · " + esc(D_(a.conductorId)?.nombre || "") : "") : "—"}</td><td class="n">${s.precio ? eur(s.precio) : "—"}</td><td>${est}</td></tr>`; }).join("")}
+        return `<tr><td class="n"><button class="btn small" data-a="irDia" data-v="${D}">${fechaCorta(s.fecha)}</button></td><td>${esc(s.ref || "—")}</td><td>${esc(origenDe(s)?.nombre || "—")} → ${esc(s.destino?.nombre || "—")}</td><td>${esc(MERC[s.mercancia].l)}</td><td class="n">${x ? fmtT(x.llegada, D) : "—"}</td><td>${s.sub ? "Subcontratado: " + esc(nombreSub(s)) : a ? esc(T_(a.camionId)?.matricula || "") + (a.conductorId ? " · " + esc(D_(a.conductorId)?.nombre || "") : "") : "—"}</td><td class="n">${s.precio ? eur(s.precio) : "—"}</td><td>${est}</td></tr>`; }).join("")}
     </tbody></table></div>` : `<div class="empty">Este cliente aún no tiene servicios.</div>`}`;
 }
 function formCliente(k) {
@@ -1563,10 +1925,10 @@ function formCliente(k) {
 
 /* ---------------------------- Flota y personal ---------------------------- */
 function vFlota() {
-  const sub = [["empresa","Empresa, base y festivos",null],["camiones","Camiones",state.camiones.length],["conductores","Conductores",state.conductores.length],["destinos","Destinos",state.destinos.length]];
+  const sub = [["empresa","Empresa, base y festivos",null],["camiones","Camiones",state.camiones.length],["conductores","Conductores",state.conductores.length],["subcontratas","Subcontratación",state.subcontratas.length]];
   return `<aside class="left"><div class="sub">${sub.map(([k, l, n]) => `<button data-a="flota" data-v="${k}" aria-current="${ui.flota === k}"><span>${l}</span>${n == null ? "" : `<span class="count">${n}</span>`}</button>`).join("")}</div>
     ${alertas().length ? `<h3>Documentación que vence pronto</h3>${alertas().slice(0, 8).map(a => `<div class="msg ${a.cad ? "err" : "warn"}">${esc(a.txt)}</div>`).join("")}` : ""}</aside>
-  <section class="center"><div class="scroll">${msg()}${ui.flota === "empresa" ? pEmpresa() : ui.flota === "camiones" ? pCamiones() : ui.flota === "conductores" ? pConductores() : pDestinos()}</div></section>`;
+  <section class="center"><div class="scroll">${msg()}${ui.flota === "empresa" ? pEmpresa() : ui.flota === "conductores" ? pConductores() : ui.flota === "subcontratas" ? pSubcontratas() : pCamiones()}</div></section>`;
 }
 function alertas() {
   const D = todayN(), out = [];
@@ -1587,7 +1949,7 @@ function pEmpresa() {
     <div class="field wide"><div class="checks"><label><input type="checkbox" name="dgt" ${E.dgt ? "checked" : ""}> Aplicar las restricciones generales de circulación de la DGT</label><label><input type="checkbox" name="pernoctas" ${E.pernoctas !== false ? "checked" : ""}> Permitir pernoctas fuera de la base (con dieta)</label><label><input type="checkbox" name="tipo2" ${E.tipo2 ? "checked" : ""}> La empresa tiene autorización de transportista de animales tipo 2 (viajes de más de 8 h)</label></div></div>
   </div>${datalist()}<p class="note">La dieta por pernocta parte de la dieta media diaria del Observatorio de Costes (julio de 2025); ajusta ambas cifras al convenio. Cataluña, País Vasco y Navarra aplican sus propias restricciones.</p>
   <div class="row"><button class="btn primary" type="submit">Guardar</button></div></form>
-  ${formBaremos()}
+  ${esAdmin() ? formBaremos() : ""}
   <h2>Festivos</h2><p class="lead">Lista editable. Comprueba el calendario laboral oficial y la resolución anual de la DGT; los autonómicos solo restringen en su comunidad.</p>
   <form class="form row" data-form="festivo"><div class="field"><label for="fe-f">Fecha</label><input id="fe-f" name="fecha" type="date" required></div><div class="field" style="flex:1"><label for="fe-n">Nombre</label><input id="fe-n" name="nombre" required></div><div class="field"><label for="fe-a">Ámbito</label><select id="fe-a" name="ambito"><option value="nacional">Nacional</option><option value="autonomico">Autonómico</option><option value="local">Local</option></select></div><button class="btn primary" type="submit" style="align-self:flex-end">Añadir festivo</button></form>
   <div class="tw"><table><thead><tr><th>Fecha</th><th>Día</th><th>Festivo</th><th>Ámbito</th><th>Restringe</th><th></th></tr></thead><tbody>${[...E.festivos].sort((a, b) => a.fecha.localeCompare(b.fecha)).map((f, i) => `<tr><td class="n">${fechaCorta(f.fecha)}</td><td>${WDL[wdNum(dayNum(f.fecha))]}</td><td>${esc(f.nombre)}</td><td>${esc({ nacional: "Nacional", autonomico: "Autonómico", local: "Local" }[f.ambito] || f.ambito)}</td><td><input type="checkbox" data-a="festAplica" data-v="${esc(f.fecha)}" ${f.aplica !== false ? "checked" : ""} aria-label="Aplicar restricción"></td><td class="n"><button class="btn small danger" data-a="borrarFest" data-v="${esc(f.fecha)}">Quitar</button></td></tr>`).join("")}</tbody></table></div>
@@ -1645,41 +2007,73 @@ function formConductor(d) {
     <div class="field wide"><label for="d-l">Días no disponibles (libranzas o vacaciones), separados por comas</label><input id="d-l" name="libres" value="${esc((v.libres || []).map(fechaCorta).join(", "))}" placeholder="dd/mm/aaaa, dd/mm/aaaa"></div>
   </div><div class="row" style="margin-top:12px"><button class="btn primary" type="submit">${d ? "Guardar cambios" : "Añadir conductor"}</button><button class="btn" type="button" data-a="cancelar">Cancelar</button></div></form>`;
 }
-function pDestinos() {
-  const ed = ui.edit && ui.edit.tipo === "destino" ? ui.edit : null;
-  return `<div class="row"><h1>Destinos</h1><span class="spacer"></span>${ed ? "" : `<button class="btn primary" data-a="nuevo" data-v="destino">Añadir destino</button>`}</div>
-  <p class="lead">Puntos de carga y entrega habituales, con su horario de recepción y las condiciones de acceso. Al crear un servicio se eligen de una lista.</p>
-  ${ed ? formDestino(ed.id ? state.destinos.find(x => x.id === ed.id) : null) : ""}
-  ${state.destinos.length ? `<div class="tw"><table><thead><tr><th>Destino</th><th>Cliente</th><th>Localidad</th><th>Recepción</th><th>Acceso</th><th></th></tr></thead><tbody>${state.destinos.map(d => `<tr><td><b>${esc(d.nombre)}</b>${d.notas ? `<br><span class="note">${esc(d.notas)}</span>` : ""}</td><td>${esc(K_(d.clienteId)?.nombre || "—")}</td><td>${esc(d.lugar?.nombre || "")}</td><td class="n">${esc(d.desde)}-${esc(d.hasta)}</td><td>${esc({ muelle: "Muelle", calle: "En calle", restringido: "Restringido a pesados" }[d.acceso] || "")}</td><td class="n"><button class="btn small" data-a="editar" data-tipo="destino" data-id="${d.id}">Editar</button> <button class="btn small danger" data-a="eliminar" data-tipo="destino" data-id="${d.id}">Eliminar</button></td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">No hay destinos guardados.</div>`}`;
+/* ---------------------------- Puntos logísticos de cada cliente ---------------------------- */
+const serviciosDePunto = id => state.servicios.filter(s => (s.origen && s.origen.destinoId === id) || (s.destino && s.destino.destinoId === id)).length;
+const coordTxt = l => l && numOk(l.lat) && numOk(l.lon) ? `${(+l.lat).toFixed(5)}, ${(+l.lon).toFixed(5)}` : "";
+function seccionPuntos(kid) {
+  const ps = kid ? puntosDe(kid) : state.destinos.filter(d => !K_(d.clienteId));
+  const ed = ui.edit && ui.edit.tipo === "punto" ? ui.edit : null;
+  if (ed && (!ui.pp || ui.pp.ed !== ed)) ppIni(ed.id ? state.destinos.find(x => x.id === ed.id) : null, ed.clienteId || kid || "", ed);
+  return `<div class="row" style="margin-top:22px"><h2 style="margin:0">Puntos logísticos</h2><span class="spacer"></span>${ed || !kid ? "" : `<button class="btn small primary" data-a="nuevoPunto" data-id="${kid}">Añadir punto logístico</button>`}</div>
+    <p class="note">${kid ? "Lugares donde se carga o se descarga la mercancía de este cliente, con su dirección, su ubicación y su horario. Al crear un servicio del cliente se eligen de una lista." : "Estos puntos se crearon sin cliente. Edítalos para asignarlos a uno."}</p>
+    ${ed ? formPunto(ed.id ? state.destinos.find(x => x.id === ed.id) : null, ed.clienteId || kid || "") : ""}
+    ${ps.length ? `<div class="tw"><table><thead><tr><th>Punto logístico</th><th>Uso</th><th>Dirección y coordenadas</th><th>Horario</th><th>Acceso</th><th>Servicios</th><th></th></tr></thead><tbody>${ps.map(d => { const n = serviciosDePunto(d.id); return `<tr><td><b>${esc(d.nombre)}</b>${d.notas ? `<br><span class="note">${esc(d.notas)}</span>` : ""}</td><td>${esc(USOS[usoDe(d)])}</td><td>${esc(d.direccion || d.lugar?.nombre || "—")}${coordTxt(d.lugar) ? `<br><span class="note">${coordTxt(d.lugar)}</span>` : ""}</td><td class="n">${d.desde || d.hasta ? esc(d.desde || "—") + "-" + esc(d.hasta || "—") : "—"}</td><td>${esc(ACCESOS[d.acceso] || "")}</td><td class="n">${n || "—"}</td><td class="n"><button class="btn small" data-a="editar" data-tipo="punto" data-id="${d.id}">Editar</button> <button class="btn small danger" data-a="borrarPunto" data-id="${d.id}">${ui.conf === "p" + d.id ? "Pulsa otra vez para eliminar" : "Eliminar"}</button></td></tr>`; }).join("")}</tbody></table></div>` : ed ? "" : `<div class="empty">${kid ? "Este cliente todavía no tiene puntos logísticos." : "No hay puntos sin cliente."}</div>`}`;
 }
-function formDestino(d) {
-  const v = d || { nombre: "", clienteId: "", lugar: null, desde: "08:00", hasta: "14:00", acceso: "muelle", notas: "" };
-  return `<form class="form" data-form="destino" data-id="${d ? d.id : ""}"><h3 style="margin-top:0">${d ? "Editar destino" : "Nuevo destino"}</h3><div class="grid">
-    <div class="field"><label for="l-n">Nombre del destino</label><input id="l-n" name="nombre" value="${esc(v.nombre)}" required></div><div class="field"><label for="l-k">Cliente</label><select id="l-k" name="clienteId"><option value="">Sin cliente</option>${state.clientes.map(k => `<option value="${k.id}" ${k.id === v.clienteId ? "selected" : ""}>${esc(k.nombre)}</option>`).join("")}</select></div>
-    <div class="field"><label for="l-lo">Localidad</label><input id="l-lo" name="loc" list="lugares" value="${esc(v.lugar?.nombre || "")}" required></div><div class="field"><label for="l-la">Latitud (si no está en la lista)</label><input id="l-la" name="lat" type="number" step="0.0001" value="${v.lugar && !GAZ[v.lugar.nombre] ? v.lugar.lat : ""}"></div><div class="field"><label for="l-lg">Longitud</label><input id="l-lg" name="lon" type="number" step="0.0001" value="${v.lugar && !GAZ[v.lugar.nombre] ? v.lugar.lon : ""}"></div>
-    <div class="field"><label for="l-d">Recepción desde</label><input id="l-d" name="desde" type="time" value="${esc(v.desde)}"></div><div class="field"><label for="l-h">Recepción hasta</label><input id="l-h" name="hasta" type="time" value="${esc(v.hasta)}"></div>
-    <div class="field"><label for="l-a">Acceso</label><select id="l-a" name="acceso"><option value="muelle" ${v.acceso === "muelle" ? "selected" : ""}>Muelle de carga</option><option value="calle" ${v.acceso === "calle" ? "selected" : ""}>Descarga en calle</option><option value="restringido" ${v.acceso === "restringido" ? "selected" : ""}>Acceso restringido a pesados</option></select></div>
-    <div class="field wide"><label for="l-o">Notas</label><input id="l-o" name="notas" value="${esc(v.notas)}"></div></div>${datalist()}
-    <div class="row" style="margin-top:12px"><button class="btn primary" type="submit">${d ? "Guardar cambios" : "Añadir destino"}</button><button class="btn" type="button" data-a="cancelar">Cancelar</button></div></form>`;
+function fichaSinCliente() {
+  return `<div class="row"><h1>Puntos sin cliente</h1></div>
+    <p class="lead">Puntos logísticos guardados antes sin cliente asignado. Para usarlos en los servicios, edita cada uno y elige su cliente.</p>
+    ${seccionPuntos("")}`;
+}
+function formPunto(d, kid) {
+  const v = d || { nombre: "", clienteId: kid || "", uso: "ambos", direccion: "", lugar: null, desde: "08:00", hasta: "14:00", acceso: "muelle", notas: "" };
+  const la = ui.pp && ui.pp.lat != null ? ui.pp.lat : "", lo = ui.pp && ui.pp.lon != null ? ui.pp.lon : "";
+  return `<form class="form" data-form="punto" data-id="${d ? d.id : ""}" autocomplete="off"><h3 style="margin-top:0">${d ? "Editar punto logístico" : "Nuevo punto logístico"}</h3>
+    <div class="msg err" id="pp-err" hidden></div>
+    <div class="grid">
+      <div class="field"><label for="pl-n">Nombre del punto</label><input id="pl-n" name="nombre" value="${esc(v.nombre)}" placeholder="Por ejemplo: Almacén central" required></div>
+      <div class="field"><label for="pl-u">Uso</label><select id="pl-u" name="uso">${Object.entries(USOS).map(([k, l]) => `<option value="${k}" ${usoDe(v) === k ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+      <div class="field"><label for="pl-k">Cliente</label><select id="pl-k" name="clienteId" required><option value="">Elige el cliente</option>${state.clientes.map(k => `<option value="${k.id}" ${k.id === v.clienteId ? "selected" : ""}>${esc(k.nombre)}</option>`).join("")}</select></div>
+      <div class="field wide"><label for="pl-dir">Dirección postal</label><div class="row pp-buscar"><input id="pl-dir" name="direccion" value="${esc(v.direccion || "")}" placeholder="Calle, número, código postal y localidad"><button class="btn" type="button" data-pp="buscar">Localizar en el mapa</button></div><div id="pp-res" class="pp-res" aria-live="polite"></div></div>
+      <div class="field wide"><span class="lbl">Ubicación en el mapa</span>
+        <div class="pp" id="pp"><svg id="pp-svg" role="img" aria-label="Mapa para situar el punto logístico"></svg>
+          <div class="pp-ayuda">Pulsa en el mapa para situar el punto exacto · arrastra para moverte</div>
+          <div class="zoom"><button type="button" data-pp="in" aria-label="Acercar">+</button><button type="button" data-pp="out" aria-label="Alejar">−</button><button type="button" data-pp="centrar" aria-label="Centrar en el punto" title="Centrar en el punto" style="font-size:14px">◎</button></div>
+          <div class="pp-attr">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></div>
+        </div></div>
+      <div class="field"><label for="pl-la">Latitud</label><input id="pl-la" name="lat" type="number" step="any" min="-90" max="90" value="${la}" placeholder="Ej.: 43.0097"></div>
+      <div class="field"><label for="pl-lo">Longitud</label><input id="pl-lo" name="lon" type="number" step="any" min="-180" max="180" value="${lo}" placeholder="Ej.: -7.5560"></div>
+      <div class="field"><label for="pl-d">Horario desde</label><input id="pl-d" name="desde" type="time" value="${esc(v.desde || "")}"></div>
+      <div class="field"><label for="pl-h">Horario hasta</label><input id="pl-h" name="hasta" type="time" value="${esc(v.hasta || "")}"></div>
+      <div class="field"><label for="pl-a">Acceso</label><select id="pl-a" name="acceso">${Object.entries(ACCESOS).map(([k, l]) => `<option value="${k}" ${v.acceso === k ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+      <div class="field wide"><label for="pl-o">Notas</label><input id="pl-o" name="notas" value="${esc(v.notas || "")}" placeholder="Cita previa, persona de contacto, número de muelle…"></div>
+    </div>
+    <p class="note">El horario se copia a los servicios que usen este punto, y en cada servicio se puede cambiar.</p>
+    <div class="row" style="margin-top:12px"><button class="btn primary" type="submit">${d ? "Guardar cambios" : "Añadir punto logístico"}</button><button class="btn" type="button" data-a="cancelar">Cancelar</button></div></form>`;
+}
+function quitarPuntos(ids) {
+  if (!ids.length) return;
+  state.destinos = state.destinos.filter(d => !ids.includes(d.id));
+  state.servicios.forEach(s => ["origen", "destino"].forEach(k => { if (s[k] && ids.includes(s[k].destinoId)) { const { destinoId, ...resto } = s[k]; s[k] = resto; } }));
 }
 
 /* ---------------------------- Resumen y legalidad ---------------------------- */
 function vResumen() {
   const D = ui.day, list = daySvc(D), sims = simsDay(D), curso = enCurso(D), rs = Object.values(sims);
   const km = rs.reduce((t, r) => t + r.km, 0), dietas = rs.reduce((t, r) => t + r.dietas, 0), ingresos = list.reduce((t, s) => t + (+s.precio || 0), 0);
-  const rows = list.map(s => { const a = state.asig[s.id], r = a ? sims[a.camionId] : null, x = r ? r.svc[s.id] : null; return { s, a, x, o: x ? (x.base ?? x.llegCarga ?? x.llegada) : 1e12 }; }).sort((p, q) => p.o - q.o);
+  const subs = list.filter(s => s.sub), costeSubs = subs.reduce((t, s) => t + (costeSub(s) || 0), 0);
+  const rows = list.map(s => { const a = s.sub ? null : state.asig[s.id], r = a ? sims[a.camionId] : null, x = r ? r.svc[s.id] : s.sub ? subX(s) : null; return { s, a, x, o: x ? (x.base ?? x.llegCarga ?? x.llegada) : 1e12 }; }).sort((p, q) => p.o - q.o);
   const pend = rows.filter(z => !z.a && !z.s.sub);
   const wk = weekKey(D), ctx = all().ctx;
   const dias = [...Array(7)].map((_, i) => wk + i);
   const porDia = {}; Object.entries(all().by).forEach(([n, res]) => Object.values(res).forEach(r => { if (!r.conductor) return; r.ev.forEach(e => { if (e.tipo !== "conduccion") return; const dn = Math.floor(e.ini / 1440); const k = r.conductor.id + ":" + dn; porDia[k] = (porDia[k] || 0) + (e.fin - e.ini); }); }));
   return `<section class="center"><div class="scroll">
     <h1>Resumen del ${esc(fechaLarga(D))}</h1>
-    <div class="stats"><div class="stat"><b>${list.length}</b><span>Servicios del día</span></div><div class="stat"><b>${list.length - pend.length}</b><span>Asignados</span></div><div class="stat"><b>${nf(km)}</b><span>Km estimados</span></div><div class="stat"><b>${eur(dietas)}</b><span>Dietas</span></div><div class="stat"><b>${eur(ingresos)}</b><span>Importe de los portes</span></div></div>
+    <div class="stats"><div class="stat"><b>${list.length}</b><span>Servicios del día</span></div><div class="stat"><b>${list.length - pend.length}</b><span>Asignados</span></div><div class="stat"><b>${nf(km)}</b><span>Km estimados</span></div><div class="stat"><b>${eur(dietas)}</b><span>Dietas</span></div><div class="stat"><b>${eur(ingresos)}</b><span>Importe de los portes</span></div>${subs.length ? `<div class="stat"><b>${eur(costeSubs)}</b><span>Subcontratado (${subs.length} ${subs.length === 1 ? "servicio" : "servicios"})</span></div>` : ""}</div>
     <h2>Hoja de servicios</h2>
     ${rows.length ? `<div class="tw"><table><thead><tr><th>Cliente</th><th>Recorrido</th><th>Km</th><th>Salida o carga</th><th>Llegada</th><th>Fin de descarga</th><th>Duración</th><th>Vehículo</th><th>Conductor</th><th>Estado</th></tr></thead><tbody>
     ${rows.map(({ s, a, x }) => { const o = origenDe(s); return `<tr><td><b>${esc(nombreCliente(s))}</b><br><span class="note">${esc(lab(s))} · ${esc(MERC[s.mercancia].l)}</span></td><td>${esc(o?.nombre || "—")} → ${esc(s.destino?.nombre || "—")}</td><td class="n">${o && s.destino ? nf(dist(o, s.destino)) : "—"}</td>
       <td class="n">${x ? (s.tipo === "recogida" ? `Carga ${fmtT(x.iniCarga, D)}` : `Base ${fmtT(x.base, D)}`) : "—"}</td><td class="n">${x ? fmtT(x.llegada, D) : "—"}</td><td class="n">${x ? fmtT(x.fin, D) : "—"}</td><td class="n">${x ? dur(x.duracion) : "—"}</td>
-      <td>${s.sub ? esc(s.subTransp || "Colaborador") + " (subcontratado)" : a ? esc(T_(a.camionId)?.matricula || "") : "—"}</td><td>${a && a.conductorId ? esc(D_(a.conductorId)?.nombre || "") : "—"}</td><td>${s.sub ? `<span class="chip">Subcontratado${s.precio && s.subCoste ? " · margen " + eur(s.precio - s.subCoste) : ""}</span>` : !a ? `<span class="chip warn" title="${esc(motivo(s))}">Sin asignar</span>` : x && (x.tarde || x.tardeCarga) ? `<span class="chip err">Fuera de plazo</span>` : `<span class="chip ok">En plazo</span>`}</td></tr>`; }).join("")}
+      <td>${s.sub ? esc(nombreSub(s)) + " (subcontratado)" + (SUB(s.subId) && TIPOS_SUB[s.subTipo] ? `<br><span class="note">${esc(TIPOS_SUB[s.subTipo].l)}</span>` : "") : a ? esc(T_(a.camionId)?.matricula || "") : "—"}</td><td>${a && a.conductorId ? esc(D_(a.conductorId)?.nombre || "") : "—"}</td><td>${s.sub ? `<span class="chip">Subcontratado · ${costeSub(s) != null ? eur(costeSub(s)) : "—"}</span>${s.precio && costeSub(s) != null ? `<br><span class="note">Margen ${eur(s.precio - costeSub(s))}</span>` : ""}` : !a ? `<span class="chip warn" title="${esc(motivo(s))}">Sin asignar</span>` : x && (x.tarde || x.tardeCarga) ? `<span class="chip err">Fuera de plazo</span>` : `<span class="chip ok">En plazo</span>`}</td></tr>`; }).join("")}
     </tbody></table></div>` : `<div class="empty">No hay servicios este día.</div>`}
     ${pend.length ? `<div class="msg warn" style="margin-top:10px"><b>Sin asignar</b><ul>${pend.map(({ s }) => `<li>${esc(lab(s))} (${esc(nombreCliente(s))}): ${esc(motivo(s))}</li>`).join("")}</ul></div>` : ""}
     <h2>Jornada de los conductores</h2>
@@ -1710,13 +2104,13 @@ app.addEventListener("click", e => {
   switch (a) {
     case "tab": ui.tab = v; ui.edit = null; ui.conf = null; if (v === "usuarios") cargarUsuarios(); if (v === "servicios" && el.closest(".maptools")) ui.edit = { tipo: "servicio", id: null }; render(); break;
     case "dia": case "irDia": if (a === "irDia") ui.tab = "plan"; irA(v); break;
-    case "modo": if (E.modo === v) return; if (v === "auto") { ui.pwd = { err: "" }; render(); return; } E.modo = v; commit(); break;
+    case "modo": if (!esAdmin()) return; if (E.modo === v) return; if (v === "auto") { ui.pwd = { err: "" }; render(); return; } E.modo = v; commit(); break;
     case "pwdNo": ui.pwd = null; render(); break;
     case "salir": salirSesion(); break;
     case "miCuenta": ui.cuenta = { err: "" }; render(); break;
     case "cuentaNo": ui.cuenta = null; render(); break;
     case "recargarUsr": ui.conf = null; cargarUsuarios(); break;
-    case "baremosDef": if (ui.conf !== "baremos") { ui.conf = "baremos"; render(); setTimeout(() => { if (ui.conf === "baremos") { ui.conf = null; render(); } }, 4000); break; } ui.conf = null; delete E.baremos; setMsg("ok", "Criterios restaurados a los valores por defecto."); commit(); break;
+    case "baremosDef": if (!esAdmin()) break; if (ui.conf !== "baremos") { ui.conf = "baremos"; render(); setTimeout(() => { if (ui.conf === "baremos") { ui.conf = null; render(); } }, 4000); break; } ui.conf = null; delete E.baremos; setMsg("ok", "Criterios restaurados a los valores por defecto."); commit(); break;
     case "quitarClaveRutas": if (ui.conf !== "ors") { ui.conf = "ors"; render(); break; } guardarClaveRutas(""); break;
     case "aprobar": { const u = (ADM.lista || []).find(x => x.clave === id); if (!u) break;
       accionUsuario(() => DP.aprobar(id), `Alta de «${esc(u.nombre)}» aprobada: ya puede entrar con la contraseña que eligió.`); break; }
@@ -1729,16 +2123,29 @@ app.addEventListener("click", e => {
     case "borrarUsr": { const u = (ADM.lista || []).find(x => x.clave === id); if (!u || u.admin) break;
       if (ui.conf !== "b" + id) { ui.conf = "b" + id; render(); break; }
       accionUsuario(() => DP.baja(id), `Usuario «${esc(u.nombre)}» dado de baja y sus datos borrados.`); break; }
-    case "recalcular": { const sin = autoDia(ui.day, true); setMsg(sin.length ? "warn" : "ok", sin.length ? `Recalculado. Quedan ${sin.length} sin asignar.` : "Recalculado: todos asignados."); commit(); break; }
+    case "recalcular": { if (!esAdmin()) break; const sin = autoDia(ui.day, true); setMsg(sin.length ? "warn" : "ok", sin.length ? `Recalculado. Quedan ${sin.length} sin asignar.` : "Recalculado: todos asignados."); commit(); break; }
     case "vista": ui.view = v; render(); break;
     case "sel": ui.sel = id; ui.view = "servicios"; render(); break;
-    case "volver": case "cerrar": ui.sel = null; if (ui.view === "camion") ui.selT = null; if (ui.view === "conductor") ui.selD = null; render(); break;
+    case "volver": case "cerrar": ui.sel = null; ui.subAbierto = null; if (ui.view === "camion") ui.selT = null; if (ui.view === "conductor") ui.selD = null; render(); break;
     case "selT": ui.selT = ui.selT === id ? null : id; render(); break;
     case "selD": ui.selD = ui.selD === id ? null : (id || null); render(); break;
     case "quitar": delete state.asig[ui.sel]; commit(); break;
     case "mover": mover(id, +v); break;
     case "zoom": zoom(v); break;
     case "nuevo": ui.edit = { tipo: v, id: null }; render(); break;
+    case "nuevoPunto": ui.edit = { tipo: "punto", id: null, clienteId: id }; ui.conf = null; render(); break;
+    case "borrarPunto": { const d = state.destinos.find(x => x.id === id); if (!d) break;
+      if (ui.conf !== "p" + id) { ui.conf = "p" + id; render(); setTimeout(() => { if (ui.conf === "p" + id) { ui.conf = null; if (!ui.edit) render(); } }, 4000); break; }
+      ui.conf = null; const n = serviciosDePunto(id); quitarPuntos([id]); if (ui.edit && ui.edit.tipo === "punto" && ui.edit.id === id) ui.edit = null;
+      setMsg("ok", `Punto logístico «${esc(d.nombre)}» eliminado.${n ? ` ${n === 1 ? "El servicio que lo usaba conserva" : `Los ${n} servicios que lo usaban conservan`} su ubicación.` : ""}`); commit(); break; }
+    case "irSub": ui.tab = "flota"; ui.flota = "subcontratas"; ui.edit = state.subcontratas.length ? null : { tipo: "subcontrata", id: null }; ui.conf = null; render(); break;
+    case "borrarSub": { const k = SUB(id); if (!k) break;
+      if (ui.conf !== "sk" + id) { ui.conf = "sk" + id; render(); setTimeout(() => { if (ui.conf === "sk" + id) { ui.conf = null; if (!ui.edit) render(); } }, 4000); break; }
+      ui.conf = null; let n = 0;
+      state.servicios.forEach(s => { if (s.sub && s.subId === id) { const c = costeSub(s); s.subCoste = c != null ? c : (+s.subCoste || 0); s.subTransp = k.nombre; delete s.subId; delete s.subTipo; n++; } });
+      state.subcontratas = state.subcontratas.filter(x => x.id !== id);
+      if (ui.edit && ui.edit.tipo === "subcontrata" && ui.edit.id === id) ui.edit = null;
+      setMsg("ok", `Empresa «${esc(k.nombre)}» eliminada.${n ? ` ${n === 1 ? "El servicio que tenía subcontratado conserva" : `Los ${n} servicios que tenía subcontratados conservan`} su nombre y el último coste calculado.` : ""}`); commit(); break; }
     case "nuevoSvcCliente": ui.tab = "servicios"; ui.cliente = id; ui.edit = { tipo: "servicio", id: null }; render(); break;
     case "editar": ui.edit = { tipo: el.dataset.tipo, id }; render(); break;
     case "duplicar": ui.edit = { tipo: "servicio", id, copia: true }; render(); break;
@@ -1750,7 +2157,7 @@ app.addEventListener("click", e => {
     case "ejemplo": { const m = E.modo; state = sample(); state.empresa.modo = m; ui.vb = null; ui.day = todayN(); if (m === "auto") autoDia(ui.day, false); setMsg("ok", "Datos de ejemplo cargados."); commit(); break; }
     case "borrarTodo":
       if (!ui.borrar) { ui.borrar = true; render(); setTimeout(() => { ui.borrar = false; if (ui.tab === "flota") render(); }, 4000); }
-      else { ui.borrar = false; const emp = { ...E }; state = { version: 1, empresa: emp, clientes: [], destinos: [], camiones: [], conductores: [], servicios: [], asig: {} }; setMsg("ok", "Datos borrados; la empresa, la base y los festivos se conservan."); commit(); }
+      else { ui.borrar = false; const emp = { ...E }; state = { version: 1, empresa: emp, clientes: [], destinos: [], camiones: [], conductores: [], servicios: [], asig: {}, subcontratas: [] }; setMsg("ok", "Datos borrados; la empresa, la base y los festivos se conservan."); commit(); }
       break;
   }
 });
@@ -1761,7 +2168,16 @@ app.addEventListener("change", e => {
   if (a === "asigD") { asigD(ui.sel, el.value); return; }
   if (a === "todos") { ui.todos = el.checked; render(); return; }
   if (a === "festAplica") { const f = state.empresa.festivos.find(x => x.fecha === el.dataset.v); if (f) f.aplica = el.checked; commit(); return; }
+  if (a === "subOn") { subOnOff(ui.sel, el.checked); return; }
+  if (a === "subK") { if (el.value) subcontratar(ui.sel, el.value, ""); return; }
+  if (a === "subT") { const s = S_(ui.sel); if (s && el.value) subcontratar(ui.sel, s.subId, el.value); return; }
   if (a === "ns") { const s = state.asig[ui.sel]; if (!s) return; const ev = evaluate(ui.sel, s.camionId, s.conductorId, { nuevaSalida: el.checked, cambiar: true }); if (!ev.ok) { setMsg("err", "No se puede: " + esc(ev.errs.join(" "))); render(); return; } state.asig = ev.asig; commit(); return; }
+  const fk = el.closest("form[data-form='subcontrata']");
+  if (fk) {
+    if (el.name && el.name.startsWith("t_")) { const tk = el.name.slice(2); ["km_", "h_"].forEach(p => { const i = fk.querySelector(`[name=${p}${tk}]`); if (i) i.disabled = !el.checked; }); if (el.checked) { const i = fk.querySelector(`[name=km_${tk}]`); if (i) i.focus(); } }
+    if (el.name === "adr") { const i = fk.querySelector("[name=recargoAdr]"); if (i) i.disabled = !el.checked; }
+    return;
+  }
   const fc = el.closest("form[data-form='camion']");
   if (fc) {
     const cf = fc.querySelector("[name=config]"), dl = fc.querySelector("[name=dolly]");
@@ -1776,6 +2192,9 @@ app.addEventListener("change", e => {
     const t = fs.querySelector("[name=tipo]").value, m = fs.querySelector("[name=mercancia]").value;
     fs.querySelector("#f-orig").hidden = t !== "recogida"; fs.querySelector("#f-adr").hidden = m !== "adr"; fs.querySelector("#f-temp").hidden = !(m === "refrigerada" || m === "congelada"); fs.querySelector("#f-vol").hidden = m !== "voluminosa";
     if (el.name === "mercancia") { fs.querySelector("[name=tCarga]").value = MERC[m].tC; fs.querySelector("[name=tDescarga]").value = MERC[m].tD; }
+    if (el.name === "clienteId") ["o", "de"].forEach(pre => { const sl = fs.querySelector(`[name=${pre}Dest]`); if (!sl) return; const cur = sl.value, dc = cur ? state.destinos.find(d => d.id === cur) : null; sl.innerHTML = opcionesPuntos(pre, el.value, dc && dc.clienteId === el.value ? cur : ""); libres(fs, pre); });
+    if (el.name === "deDest" || el.name === "oDest") libres(fs, el.name === "oDest" ? "o" : "de");
+    if (el.name === "subId") fs.querySelectorAll("[data-subotro]").forEach(x => { x.hidden = el.value !== "__otro"; });
     if (el.name === "deDest" && el.value) { const d = state.destinos.find(x => x.id === el.value); if (d) { fs.querySelector("[name=veD]").value = d.desde || ""; fs.querySelector("[name=veH]").value = d.hasta || ""; } }
     if (el.name === "oDest" && el.value) { const d = state.destinos.find(x => x.id === el.value); if (d) { fs.querySelector("[name=vcD]").value = d.desde || ""; fs.querySelector("[name=vcH]").value = d.hasta || ""; } }
   }
@@ -1803,13 +2222,22 @@ app.addEventListener("submit", e => {
   e.preventDefault();
   const f = e.target, fd = new FormData(f), tipo = f.dataset.form, id = f.dataset.id, E = state.empresa;
   if (tipo === "pwd") {
-    if (huella(String(fd.get("clave") || "")) !== CLAVE_AUTO) { ui.pwd = { err: "Contraseña incorrecta." }; render(); return; }
-    ui.pwd = null; E.modo = "auto";
-    const sin = autoDia(ui.day, false);
-    setMsg(sin.length ? "warn" : "ok", sin.length ? `Día planificado. Quedan ${sin.length} sin asignar: consulta el resumen.` : "Día planificado: todos los servicios tienen vehículo y conductor.");
-    commit(); return;
+    if (!esAdmin() || !DP || !DP.comprobarClave) { ui.pwd = null; render(); return; }
+    if (ui.pwd && ui.pwd.ocupado) return;
+    const clave = String(fd.get("clave") || "");
+    if (!clave) { ui.pwd = { err: "Escribe tu contraseña de acceso." }; render(); return; }
+    ui.pwd = { ocupado: true }; render();
+    DP.comprobarClave(clave).then(() => {
+      if (!ui.pwd || !ui.pwd.ocupado) return;
+      ui.pwd = null; state.empresa.modo = "auto";
+      const sin = autoDia(ui.day, false);
+      setMsg(sin.length ? "warn" : "ok", sin.length ? `Día planificado. Quedan ${sin.length} sin asignar: consulta el resumen.` : "Día planificado: todos los servicios tienen vehículo y conductor.");
+      commit();
+    }).catch(err => { if (!ui.pwd) return; ui.pwd = { err: errNube(err) }; render(); });
+    return;
   }
   if (tipo === "baremos") {
+    if (!esAdmin()) return;
     const b = {};
     Object.entries(BAREMOS).forEach(([k, d]) => { let v = parseFloat(String(fd.get(k) ?? "").replace(",", ".")); if (!isFinite(v)) v = d.def; b[k] = Math.round(Math.min(d.max, Math.max(d.min, v)) * 1000) / 1000; });
     E.baremos = b;
@@ -1844,13 +2272,35 @@ app.addEventListener("submit", e => {
     const i = state.clientes.findIndex(x => x.id === k.id); if (i >= 0) state.clientes[i] = k; else state.clientes.push(k);
     ui.cliente = k.id; ui.edit = null; setMsg("ok", `Cliente «${esc(k.nombre)}» guardado.`); commit(); return;
   }
-  if (tipo === "destino") {
-    const n = (fd.get("loc") || "").trim(); let lugar = gaz(n);
-    if (!lugar) { const la = parseFloat(fd.get("lat")), lo = parseFloat(fd.get("lon")); if (isNaN(la) || isNaN(lo)) { setMsg("err", `«${esc(n)}» no está en la lista: indica latitud y longitud.`); render(); return; } lugar = { nombre: n, lat: la, lon: lo }; }
-    const d = { id: id || uid("l"), nombre: (fd.get("nombre") || "").trim(), clienteId: fd.get("clienteId") || "", lugar, desde: fd.get("desde") || "", hasta: fd.get("hasta") || "", acceso: fd.get("acceso"), notas: fd.get("notas") || "" };
+  if (tipo === "punto") {
+    const er = [], nombre = (fd.get("nombre") || "").trim(), kid = fd.get("clienteId") || "", direccion = (fd.get("direccion") || "").trim();
+    let la = parseFloat(fd.get("lat")), lo = parseFloat(fd.get("lon"));
+    if (!nombre) er.push("Escribe el nombre del punto.");
+    if (!K_(kid)) er.push("Elige el cliente.");
+    if (!isFinite(la) || !isFinite(lo)) { const g = gaz(direccion); if (g) { la = g.lat; lo = g.lon; } else er.push("Sitúa el punto en el mapa, búscalo por su dirección o escribe la latitud y la longitud."); }
+    else if (Math.abs(la) > 90 || Math.abs(lo) > 180) er.push("La latitud va de -90 a 90 y la longitud de -180 a 180.");
+    if (er.length) { const b = f.querySelector("#pp-err"); if (b) { b.innerHTML = errList("No se ha guardado el punto logístico.", er); b.hidden = false; b.scrollIntoView({ block: "nearest" }); } return; }
+    const prev = id ? state.destinos.find(x => x.id === id) : null;
+    const d = { id: id || uid("l"), nombre, clienteId: kid, uso: USOS[fd.get("uso")] ? fd.get("uso") : "ambos", direccion, lugar: { nombre: direccion || (prev && prev.lugar && prev.lugar.nombre) || nombre, lat: la, lon: lo }, desde: fd.get("desde") || "", hasta: fd.get("hasta") || "", acceso: fd.get("acceso") || "muelle", notas: (fd.get("notas") || "").trim() };
     const i = state.destinos.findIndex(x => x.id === d.id); if (i >= 0) state.destinos[i] = d; else state.destinos.push(d);
     state.servicios.forEach(s => { ["origen", "destino"].forEach(k => { if (s[k] && s[k].destinoId === d.id) s[k] = { ...d.lugar, nombre: d.nombre, destinoId: d.id }; }); });
-    ui.edit = null; setMsg("ok", `Destino «${esc(d.nombre)}» guardado.`); commit(); return;
+    ui.edit = null; ui.pp = null; ui.cliente = kid; setMsg("ok", `Punto logístico «${esc(d.nombre)}» guardado.`); commit(); return;
+  }
+  if (tipo === "subcontrata") {
+    const num = n => { const x = parseFloat(String(fd.get(n) ?? "").replace(",", ".")); return isFinite(x) && x > 0 ? Math.round(x * 100) / 100 : 0; };
+    const tarifas = {};
+    Object.keys(TIPOS_SUB).forEach(tk => { if (fd.get("t_" + tk) === "on") tarifas[tk] = { km: num("km_" + tk), hora: num("h_" + tk) }; });
+    const tx = n => String(fd.get(n) || "").trim();
+    const k = { id: id || uid("sk"), nombre: tx("nombre"), cif: tx("cif").toUpperCase(), contacto: tx("contacto"), telefono: tx("telefono"), email: tx("email"), localidad: tx("localidad"), autorizacion: tx("autorizacion"), notas: tx("notas"),
+      adr: fd.get("adr") === "on", recargoAdr: fd.get("adr") === "on" ? Math.min(100, num("recargoAdr")) : 0, pernocta: num("pernocta"), dieta: num("dieta"), minimo: num("minimo"), tarifas };
+    const er = [];
+    if (!k.nombre) er.push("Escribe la razón social de la empresa.");
+    if (!Object.keys(tarifas).length) er.push("Marca al menos un vehículo y escribe su precio.");
+    Object.entries(tarifas).forEach(([tk, x]) => { if (!x.km && !x.hora) er.push(`${TIPOS_SUB[tk].l}: escribe el precio por km, por hora o los dos.`); });
+    if (er.length) { const b = f.querySelector("#sk-err"); if (b) { b.innerHTML = errList("No se ha guardado la empresa.", er); b.hidden = false; b.scrollIntoView({ block: "nearest" }); } return; }
+    const i = state.subcontratas.findIndex(x => x.id === k.id); if (i >= 0) state.subcontratas[i] = k; else state.subcontratas.push(k);
+    state.servicios.forEach(s => { if (s.sub && s.subId === k.id) { s.subTransp = k.nombre; const c = calcSub(s, k, s.subTipo); if (c) s.subCoste = c.total; } });
+    ui.edit = null; setMsg("ok", `Empresa «${esc(k.nombre)}» guardada.`); commit(); return;
   }
   if (tipo === "camion") {
     const cfgK = fd.get("config"), g = CONFIG[cfgK];
@@ -1883,6 +2333,7 @@ app.addEventListener("submit", e => {
       vCarga: t === "recogida" ? { desde: fd.get("vcD") || o.dest?.desde || "", hasta: fd.get("vcH") || o.dest?.hasta || "" } : null, vEntrega: ve, tCarga: +fd.get("tCarga") || 0, tDescarga: +fd.get("tDescarga") || 0, precio: +fd.get("precio") || 0,
       adrClase: m === "adr" ? fd.get("adrClase") || "" : "", adrCisterna: m === "adr" && fd.get("adrCisterna") === "on", temperatura: (m === "refrigerada" || m === "congelada") && fd.get("temperatura") !== "" ? +fd.get("temperatura") : "",
       largo: m === "voluminosa" ? (+fd.get("largo") || "") : "", ancho: m === "voluminosa" ? (+fd.get("ancho") || "") : "", acc: m === "voluminosa" && fd.get("acc") === "on", exento: fd.get("exento") === "on", sub: fd.get("sub") === "on", subTransp: (fd.get("subTransp") || "").trim(), subCoste: +fd.get("subCoste") || 0, obs: (fd.get("obs") || "").trim() };
+    { const eSub = resolverSubForm(s, fd, id ? S_(id) : null); if (eSub) { const b = f.querySelector("#f-suberr"); if (b) { b.textContent = eSub; b.hidden = false; b.scrollIntoView({ block: "nearest" }); } else { setMsg("err", esc(eSub)); render(); } return; } }
     const i = state.servicios.findIndex(x => x.id === s.id);
     if (s.sub) delete state.asig[s.id];
     if (i >= 0) { const antes = state.servicios[i].fecha; state.servicios[i] = s; const a = state.asig[s.id]; if (a) { if (antes !== s.fecha) { delete state.asig[s.id]; setMsg("warn", "Servicio guardado. Al cambiar de fecha se ha quitado su asignación."); } else { const ev = evaluate(s.id, a.camionId, a.conductorId, { nuevaSalida: a.nuevaSalida, cambiar: true }); if (!ev.ok) { delete state.asig[s.id]; setMsg("warn", "Servicio guardado. Se ha quitado su asignación porque ya no era válida: " + esc(ev.errs.join(" "))); } } } }
@@ -1897,8 +2348,8 @@ function eliminar(tipo, id) {
   if (tipo === "camion") { state.camiones = state.camiones.filter(c => c.id !== id); Object.keys(state.asig).forEach(k => { if (state.asig[k].camionId === id) delete state.asig[k]; }); }
   if (tipo === "conductor") { state.conductores = state.conductores.filter(c => c.id !== id); Object.values(state.asig).forEach(a => { if (a.conductorId === id) a.conductorId = null; }); }
   if (tipo === "servicio") { state.servicios = state.servicios.filter(c => c.id !== id); delete state.asig[id]; }
-  if (tipo === "destino") state.destinos = state.destinos.filter(c => c.id !== id);
-  if (tipo === "cliente") { if (state.servicios.some(s => s.clienteId === id)) { setMsg("err", "No se puede eliminar un cliente con servicios. Elimina o reasigna antes sus servicios."); render(); return; } state.clientes = state.clientes.filter(c => c.id !== id); ui.cliente = null; ui.edit = null; }
+  if (tipo === "destino" || tipo === "punto") quitarPuntos([id]);
+  if (tipo === "cliente") { if (state.servicios.some(s => s.clienteId === id)) { setMsg("err", "No se puede eliminar un cliente con servicios. Elimina o reasigna antes sus servicios."); render(); return; } state.clientes = state.clientes.filter(c => c.id !== id); quitarPuntos(state.destinos.filter(d => d.clienteId === id).map(d => d.id)); ui.cliente = null; ui.edit = null; }
   commit();
 }
 function asigC(sid, cId) {
@@ -1926,6 +2377,122 @@ function mover(sid, dir) {
   if (sim && sim.errs.length) { setMsg("err", "No se puede cambiar el orden: " + esc(sim.errs.join(" "))); render(); return; }
   state.asig = asig; commit();
 }
+
+/* Selector de ubicación de los puntos logísticos */
+const PP_ZMIN = 4, PP_ZMAX = 18;
+const invP = (x, y) => { const lon = (x + MX0) / MS * 360 - 180, psi = (0.5 - (y + MY0) / MS) * 2 * Math.PI; return { lat: Math.atan(Math.sinh(psi)) * 180 / Math.PI, lon }; };
+const r5 = n => Math.round(n * 1e5) / 1e5;
+function ppIni(d, kid, ed) {
+  const ll = d && d.lugar && numOk(d.lugar.lat) && numOk(d.lugar.lon) ? { lat: +d.lugar.lat, lon: +d.lugar.lon } : null;
+  let c = ll;
+  if (!c) {
+    const otros = state.destinos.filter(x => x.clienteId === kid && x.lugar && numOk(x.lugar.lat) && numOk(x.lugar.lon));
+    c = otros.length ? { lat: otros.reduce((t, x) => t + +x.lugar.lat, 0) / otros.length, lon: otros.reduce((t, x) => t + +x.lugar.lon, 0) / otros.length } : { lat: +state.empresa.base.lat, lon: +state.empresa.base.lon };
+  }
+  const q = P(c);
+  ui.pp = { ed, kid, id: d ? d.id : null, lat: ll ? ll.lat : null, lon: ll ? ll.lon : null, cx: q.x, cy: q.y, z: ll ? 16 : 8 };
+  ui.ppRes = null;
+}
+function ppVista(svg) {
+  const r = svg.getBoundingClientRect(), W = r.width || 600, H = r.height || 300, w = W * MS / (256 * 2 ** ui.pp.z), h = w * H / W;
+  return { r, W, H, x: ui.pp.cx - w / 2, y: ui.pp.cy - h / 2, w, h, px: w / W };
+}
+function pintarPicker() {
+  const svg = document.getElementById("pp-svg"); if (!svg || !ui.pp) return;
+  const v = ppVista(svg), px = v.px;
+  svg.setAttribute("viewBox", `${v.x} ${v.y} ${v.w} ${v.h}`);
+  let g = `<rect x="${v.x}" y="${v.y}" width="${v.w}" height="${v.h}" fill="var(--sea)"/>`;
+  if (teselas()) g += capaOSM(v, px);
+  else g += `<path d="${polyD(IBERIA)}Z" fill="var(--land)" stroke="var(--land-line)" stroke-width="${px * 1.2}"/>` + REF.map(n => { const q = P(gaz(n)); return `<circle cx="${q.x}" cy="${q.y}" r="${px * 2.2}" fill="var(--land-line)"/><text class="cl" x="${q.x + px * 5}" y="${q.y + px * 4}" font-size="${px * 11}" stroke-width="${px * 3}">${esc(n)}</text>`; }).join("");
+  state.destinos.filter(x => x.clienteId === ui.pp.kid && x.id !== ui.pp.id && x.lugar && numOk(x.lugar.lat)).forEach(x => {
+    const q = P(x.lugar); g += `<circle cx="${q.x}" cy="${q.y}" r="${px * 5}" fill="#8A94A3" stroke="#fff" stroke-width="${px * 1.5}"/><text class="ml" x="${q.x + px * 8}" y="${q.y + px * 4}" font-size="${px * 11.5}" stroke-width="${px * 3}">${esc(x.nombre)}</text>`;
+  });
+  if (ui.pp.lat != null) { const q = P(ui.pp); g += `<g class="pp-pin" transform="translate(${q.x},${q.y}) scale(${px * 1.4})"><path d="M0,0 C-5,-9 -10,-13 -10,-20 A10,10 0 1 1 10,-20 C10,-13 5,-9 0,0Z" fill="var(--signal)" stroke="#111" stroke-width="1.4"/><circle cx="0" cy="-20" r="4" fill="#111"/></g>`; }
+  svg.innerHTML = g;
+}
+function ppPoner(ll, centrar, z) {
+  if (!ui.pp || !ll || !isFinite(ll.lat) || !isFinite(ll.lon)) return;
+  ui.pp.lat = r5(ll.lat); ui.pp.lon = r5(ll.lon);
+  if (centrar) { const q = P(ui.pp); ui.pp.cx = q.x; ui.pp.cy = q.y; if (z) ui.pp.z = z; }
+  const f = document.querySelector("form[data-form=punto]");
+  if (f) { f.querySelector("[name=lat]").value = ui.pp.lat; f.querySelector("[name=lon]").value = ui.pp.lon; const b = f.querySelector("#pp-err"); if (b) b.hidden = true; }
+  pintarPicker();
+}
+function ppZoom(dz, mx, my) {
+  const z = Math.max(PP_ZMIN, Math.min(PP_ZMAX, ui.pp.z + dz)); if (z === ui.pp.z) return;
+  if (mx != null) { const f = 2 ** (ui.pp.z - z); ui.pp.cx = mx + (ui.pp.cx - mx) * f; ui.pp.cy = my + (ui.pp.cy - my) * f; }
+  ui.pp.z = z; pintarPicker();
+}
+async function geocodificar(q) {
+  const b = state.empresa.base, k = window.__DP && window.__DP.orsKey;
+  if (k && Date.now() > RUTAS.parado) {
+    try {
+      const r = await fetch(`${ORS}/geocode/search?api_key=${encodeURIComponent(k)}&text=${encodeURIComponent(q)}&size=5&focus.point.lat=${+b.lat}&focus.point.lon=${+b.lon}`, { headers: { Accept: "application/json" } });
+      if (r.ok) {
+        const j = await r.json();
+        const out = (j.features || []).map(f => ({ label: (f.properties && f.properties.label) || q, lat: f.geometry && f.geometry.coordinates ? +f.geometry.coordinates[1] : NaN, lon: f.geometry && f.geometry.coordinates ? +f.geometry.coordinates[0] : NaN, fuente: "openrouteservice" })).filter(x => isFinite(x.lat) && isFinite(x.lon));
+        if (out.length) return out;
+      }
+    } catch (e) { /* se prueba con Nominatim */ }
+  }
+  const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=es&viewbox=-10.5,44.5,4.5,35.5&q=${encodeURIComponent(q)}`, { headers: { Accept: "application/json" } });
+  if (!r.ok) throw new Error("nominatim " + r.status);
+  const j = await r.json();
+  return (Array.isArray(j) ? j : []).map(x => ({ label: x.display_name || q, lat: +x.lat, lon: +x.lon, fuente: "Nominatim (OpenStreetMap)" })).filter(x => isFinite(x.lat) && isFinite(x.lon));
+}
+let ppBuscando = false;
+async function localizarPunto() {
+  const f = document.querySelector("form[data-form=punto]"); if (!f || ppBuscando) return;
+  const inp = f.querySelector("[name=direccion]"), q = (inp.value || "").trim(), res = f.querySelector("#pp-res");
+  const est = (t, err) => { if (res && res.isConnected) res.innerHTML = `<span class="${err ? "pp-mal" : "note"}">${t}</span>`; };
+  if (!q) { est("Escribe primero la dirección.", true); inp.focus(); return; }
+  const g = gaz(q);
+  if (g) { ppPoner(g, true, 13); est("Situado en la localidad. Pulsa en el mapa para marcar el punto exacto."); return; }
+  ppBuscando = true; est("Buscando la dirección…");
+  let lista = null;
+  try { lista = await geocodificar(q); } catch (e) { lista = null; }
+  ppBuscando = false;
+  if (!res || !res.isConnected || !ui.pp) return;
+  if (!lista) { est("No se ha podido buscar la dirección (sin conexión con el servicio de búsqueda). Sitúa el punto en el mapa o escribe la latitud y la longitud.", true); return; }
+  if (!lista.length) { est("No se ha encontrado esa dirección. Prueba con calle, número, código postal y localidad, o sitúa el punto en el mapa.", true); return; }
+  ui.ppRes = lista;
+  if (lista.length === 1) { ppPoner(lista[0], true, 17); est(`Situado en: ${esc(lista[0].label)}. Pulsa en el mapa para afinar el punto exacto.`); return; }
+  res.innerHTML = `<span class="note">Elige el resultado correcto (búsqueda: ${esc(lista[0].fuente)}):</span>` + lista.map((x, i) => `<button type="button" class="btn small pp-op" data-pp="res" data-i="${i}">${esc(x.label)}</button>`).join("");
+}
+let ppDrag = null, ppRaf = 0, ppT = null;
+const ppRepintar = () => { if (ppRaf) return; ppRaf = requestAnimationFrame(() => { ppRaf = 0; pintarPicker(); }); };
+app.addEventListener("pointerdown", e => { const svg = e.target.closest("#pp-svg"); if (!svg || !ui.pp || e.button > 0) return; ppDrag = { x: e.clientX, y: e.clientY, cx: ui.pp.cx, cy: ui.pp.cy, mov: false, svg }; try { svg.setPointerCapture(e.pointerId); } catch (x) { /* nada */ } });
+app.addEventListener("pointermove", e => {
+  if (!ppDrag) return; const dx = e.clientX - ppDrag.x, dy = e.clientY - ppDrag.y;
+  if (!ppDrag.mov && Math.hypot(dx, dy) < 5) return;
+  ppDrag.mov = true; ppDrag.svg.parentNode.classList.add("drag");
+  const v = ppVista(ppDrag.svg); ui.pp.cx = ppDrag.cx - dx * v.px; ui.pp.cy = ppDrag.cy - dy * v.px; ppRepintar();
+});
+app.addEventListener("pointerup", e => {
+  if (!ppDrag) return; const d = ppDrag; ppDrag = null; d.svg.parentNode.classList.remove("drag");
+  if (d.mov || !ui.pp) return;
+  const v = ppVista(d.svg); ppPoner(invP(v.x + (e.clientX - v.r.left) * v.px, v.y + (e.clientY - v.r.top) * v.px), false);
+});
+app.addEventListener("pointercancel", () => { if (ppDrag) { ppDrag.svg.parentNode.classList.remove("drag"); ppDrag = null; } });
+app.addEventListener("wheel", e => { const svg = e.target.closest("#pp-svg"); if (!svg || !ui.pp) return; e.preventDefault(); const v = ppVista(svg); ppZoom(Math.max(-1, Math.min(1, -e.deltaY / 200)), v.x + (e.clientX - v.r.left) * v.px, v.y + (e.clientY - v.r.top) * v.px); }, { passive: false });
+app.addEventListener("click", e => {
+  const b = e.target.closest("[data-pp]"); if (!b || !ui.pp) return; e.preventDefault();
+  const a = b.dataset.pp;
+  if (a === "in") ppZoom(1); else if (a === "out") ppZoom(-1);
+  else if (a === "centrar") { if (ui.pp.lat != null) { const q = P(ui.pp); ui.pp.cx = q.x; ui.pp.cy = q.y; pintarPicker(); } }
+  else if (a === "buscar") localizarPunto();
+  else if (a === "res") { const r = (ui.ppRes || [])[+b.dataset.i]; if (r) { ppPoner(r, true, 17); const res = document.getElementById("pp-res"); if (res) res.innerHTML = `<span class="note">Situado en: ${esc(r.label)}. Pulsa en el mapa para afinar el punto exacto.</span>`; } }
+});
+app.addEventListener("input", e => {
+  const f = e.target.closest("form[data-form=punto]"); if (!f || !ui.pp || !(e.target.name === "lat" || e.target.name === "lon")) return;
+  clearTimeout(ppT); ppT = setTimeout(() => {
+    const la = parseFloat(f.querySelector("[name=lat]").value), lo = parseFloat(f.querySelector("[name=lon]").value);
+    if (!isFinite(la) || !isFinite(lo) || Math.abs(la) > 85 || Math.abs(lo) > 180) return;
+    ui.pp.lat = la; ui.pp.lon = lo; const q = P(ui.pp); ui.pp.cx = q.x; ui.pp.cy = q.y; if (ui.pp.z < 12) ui.pp.z = 15; pintarPicker();
+  }, 450);
+});
+app.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.name === "direccion" && e.target.closest("form[data-form=punto]")) { e.preventDefault(); localizarPunto(); } });
+window.addEventListener("resize", () => { if (document.getElementById("pp-svg")) pintarPicker(); });
 
 /* Zoom y desplazamiento */
 function zoom(how, cx, cy) {
@@ -2263,6 +2830,14 @@ init();
         catch (e) { if (e && /credential|password|user-mismatch/.test(e.code || "")) throw { dp: "La contraseña actual no es correcta." }; throw e; }
         await u.updatePassword(nueva + SUF);
       },
+      // Contraseña del modo automático: la misma con la que entra el administrador.
+      async comprobarClave(clave) {
+        if (!perfil || !perfil.admin) throw { dp: "Solo el administrador puede activar el modo automático." };
+        const u = auth.currentUser; if (!u) throw { dp: "La sesión ha caducado. Vuelve a entrar." };
+        try { await u.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(u.email, clave + SUF)); }
+        catch (e) { if (e && /credential|password|user-mismatch|invalid-login/.test(e.code || "")) throw { dp: "Contraseña incorrecta. Es la misma con la que entras como administrador." }; throw e; }
+        return true;
+      },
       async salir() {
         if (window.__pararGuardado) window.__pararGuardado();
         limpiarCache();
@@ -2363,7 +2938,7 @@ init();
     if (!d || typeof d !== "object" || !Array.isArray(d.servicios) || !Array.isArray(d.camiones) || !Array.isArray(d.conductores) || !d.empresa) { msg("err", "El archivo no parece una copia de datos de este programa."); return; }
     st.msg = null; st.pendRest = { datos: d, espacio: c.formato === FORMATO_COPIA ? c.espacio : "", fecha: c.formato === FORMATO_COPIA ? c.fecha : "" }; pintar();
   }
-  const vaciar = () => ({ version: 1, empresa: {}, clientes: [], destinos: [], camiones: [], conductores: [], servicios: [], asig: {} });
+  const vaciar = () => ({ version: 1, empresa: {}, clientes: [], destinos: [], camiones: [], conductores: [], servicios: [], asig: {}, subcontratas: [] });
   function descargar(nombre, texto) {
     const b = new Blob([texto], { type: "application/json" }), u = URL.createObjectURL(b), a = document.createElement("a");
     a.href = u; a.download = nombre; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 2000);
